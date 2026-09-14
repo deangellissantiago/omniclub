@@ -1,4 +1,5 @@
 using Checkin.Application.DTOs.Bookings;
+using Checkin.Application.DTOs.CheckinPoints;
 using Checkin.Application.Exceptions;
 using Checkin.Application.Ports.Integrations;
 using Checkin.Application.UseCases.CheckinPoints;
@@ -84,5 +85,42 @@ public class CheckinPointServiceTests
         var service = BuildService();
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.SyncProductsAsync(point.Id));
+    }
+
+    /// <summary>Base do relatório de repasse (Fase 2 do roadmap) — o valor/check-in precisa
+    /// persistir pra ReportService.RevenueAsync conseguir estimar a receita.</summary>
+    [Fact]
+    public async Task Create_persists_the_price_per_checkin_when_informed()
+    {
+        var service = BuildService();
+        var request = new UpsertCheckinPointRequest(IntegrationApp.Wellhub, "999", "Nova unidade", true, PricePerCheckinCents: 350);
+
+        var dto = await service.CreateAsync(request);
+
+        Assert.Equal(350, dto.PricePerCheckinCents);
+    }
+
+    [Fact]
+    public async Task Create_leaves_price_unconfigured_when_omitted()
+    {
+        var service = BuildService();
+        var request = new UpsertCheckinPointRequest(IntegrationApp.Wellhub, "999", "Nova unidade", true);
+
+        var dto = await service.CreateAsync(request);
+
+        Assert.Null(dto.PricePerCheckinCents);
+    }
+
+    [Fact]
+    public async Task Update_can_change_the_price_per_checkin()
+    {
+        var point = SeedPoint();
+        point.PricePerCheckinCents = 100;
+        var service = BuildService();
+
+        var dto = await service.UpdateAsync(point.Id, new UpsertCheckinPointRequest(point.App, point.ExternalId, point.Name, true, PricePerCheckinCents: 275));
+
+        Assert.Equal(275, dto.PricePerCheckinCents);
+        Assert.Equal(275, point.PricePerCheckinCents);
     }
 }

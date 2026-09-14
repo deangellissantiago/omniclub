@@ -1,3 +1,4 @@
+using System.Globalization;
 using Checkin.Api.Csv;
 using Checkin.Application.UseCases.Reports;
 using Microsoft.AspNetCore.Authorization;
@@ -84,4 +85,36 @@ public class ReportsController : ControllerBase
     [HttpGet("growth")]
     public async Task<IActionResult> Growth([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string groupBy = "week", CancellationToken ct = default) =>
         Ok(await _service.GrowthAsync(startDate, endDate, groupBy, ct));
+
+    /// <summary>Conciliação de repasse Wellhub/TotalPass (check-ins aprovados × valor/check-in
+    /// configurado por ponto), filtrável por data.</summary>
+    [HttpGet("revenue")]
+    public async Task<IActionResult> Revenue([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken ct) =>
+        Ok(await _service.RevenueAsync(startDate, endDate, ct));
+
+    [HttpGet("revenue/export")]
+    public async Task<IActionResult> RevenueExport([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken ct)
+    {
+        var report = await _service.RevenueAsync(startDate, endDate, ct);
+        var csv = CsvExporter.Write(report.ByPoint,
+            ("Ponto de check-in", i => i.CheckinPointName),
+            ("App", i => i.App),
+            ("Check-ins aprovados", i => i.ApprovedCheckins),
+            ("Valor por check-in (R$)", i => FormatCents(i.PricePerCheckinCents)),
+            ("Receita estimada (R$)", i => FormatCents(i.EstimatedRevenueCents)));
+        return File(csv, "text/csv", "relatorio-repasse.csv");
+    }
+
+    /// <summary>Penetração de cada app de benefício na base de alunos ativos — foto de agora,
+    /// não filtrável por período (ver ReportService.AppPenetrationAsync).</summary>
+    [HttpGet("app-penetration")]
+    public async Task<IActionResult> AppPenetration(CancellationToken ct) => Ok(await _service.AppPenetrationAsync(ct));
+
+    /// <summary>Ranking de unidades com variação período a período (padrão: últimos 30 dias).</summary>
+    [HttpGet("school-ranking")]
+    public async Task<IActionResult> SchoolRanking([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken ct) =>
+        Ok(await _service.SchoolRankingAsync(startDate, endDate, ct));
+
+    private static string FormatCents(long? cents) =>
+        cents.HasValue ? (cents.Value / 100m).ToString("F2", CultureInfo.GetCultureInfo("pt-BR")) : "";
 }

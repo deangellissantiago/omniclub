@@ -63,6 +63,9 @@ export interface CheckinPoint {
   active: boolean;
   createdAt: string;
   products: WellhubProduct[];
+  /** Valor (em centavos) que o app repassa à academia por check-in aprovado neste ponto.
+   * Nulo enquanto o admin não configurar — o relatório de repasse não estima em cima disso. */
+  pricePerCheckinCents?: number | null;
 }
 
 export type UpsertCheckinPoint = Omit<CheckinPoint, "id" | "createdAt" | "products">;
@@ -168,4 +171,50 @@ export interface GrowthPeriod {
 export interface GrowthReport {
   groupBy: "week" | "month";
   periods: GrowthPeriod[];
+}
+
+export interface RevenuePerPoint {
+  checkinPointId: string;
+  checkinPointName: string;
+  app: string;
+  approvedCheckins: number;
+  pricePerCheckinCents?: number | null;
+  /** Nulo quando o ponto não tem valor configurado — nunca é uma estimativa "chutada". */
+  estimatedRevenueCents?: number | null;
+}
+
+/** Conciliação de repasse Wellhub/TotalPass — o diferencial que só o OmniClub calcula. */
+export interface RevenueReport {
+  totalApprovedCheckins: number;
+  totalEstimatedRevenueCents?: number | null;
+  byPoint: RevenuePerPoint[];
+  pointsWithoutPriceConfigured: number;
+}
+
+export interface AppPenetrationItem {
+  app: string;
+  activeStudents: number;
+  percent: number;
+}
+
+/** Não é filtrável por período — sempre "a foto de agora" (mesma filosofia do EngagementReport). */
+export interface AppPenetrationReport {
+  totalActiveStudents: number;
+  items: AppPenetrationItem[];
+}
+
+export interface SchoolRankingItem {
+  checkinPointId: string;
+  checkinPointName: string;
+  app: string;
+  totalCheckins: number;
+  previousPeriodCheckins: number;
+  /** Nulo quando o período anterior não teve nenhum check-in ("novo" na UI, não 0%/infinito). */
+  changePercent?: number | null;
+}
+
+export interface SchoolRankingReport {
+  periodStart: string;
+  periodEnd: string;
+  items: SchoolRankingItem[];
 }

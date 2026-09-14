@@ -9,17 +9,22 @@ import {
 import type { CheckinPoint, IntegrationApp, UpsertCheckinPoint } from "../api/types";
 import { extractErrorMessage } from "../api/client";
 import { ActiveBadge, AppBadge, TableEmpty } from "../components/ui";
+import { centsToReaisInput, formatMoneyCents, reaisInputToCents } from "../lib/money";
 
 const EMPTY_FORM: UpsertCheckinPoint = {
   app: "Wellhub",
   externalId: "",
   name: "",
   active: true,
+  pricePerCheckinCents: null,
 };
 
 export function CheckinPointsPage() {
   const [points, setPoints] = useState<CheckinPoint[]>([]);
   const [form, setForm] = useState<UpsertCheckinPoint>(EMPTY_FORM);
+  // Texto do input de preço em reais (ex.: "1,50") — convertido pra centavos só no submit,
+  // pra não perder o que a pessoa está digitando (ex.: "1," no meio de digitar "1,50").
+  const [priceText, setPriceText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,11 +41,13 @@ export function CheckinPointsPage() {
   function startEdit(point: CheckinPoint) {
     setEditingId(point.id);
     setForm({ app: point.app, externalId: point.externalId, name: point.name, active: point.active });
+    setPriceText(centsToReaisInput(point.pricePerCheckinCents));
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setPriceText("");
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -48,10 +55,11 @@ export function CheckinPointsPage() {
     setError(null);
     setLoading(true);
     try {
+      const payload = { ...form, pricePerCheckinCents: reaisInputToCents(priceText) };
       if (editingId) {
-        await updateCheckinPoint(editingId, form);
+        await updateCheckinPoint(editingId, payload);
       } else {
-        await createCheckinPoint(form);
+        await createCheckinPoint(payload);
       }
       cancelEdit();
       await refresh();
@@ -122,6 +130,15 @@ export function CheckinPointsPage() {
               required
             />
           </label>
+          <label>
+            Valor por check-in (R$)
+            <input
+              inputMode="decimal"
+              value={priceText}
+              onChange={(e) => setPriceText(e.target.value)}
+              placeholder="Ex.: 1,50"
+            />
+          </label>
           <label className="checkbox-label">
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             Ativo
@@ -147,6 +164,7 @@ export function CheckinPointsPage() {
               <th>Nome</th>
               <th>App</th>
               <th>Identificador</th>
+              <th>Valor/check-in</th>
               <th>Produtos</th>
               <th>Status</th>
               <th></th>
@@ -155,7 +173,7 @@ export function CheckinPointsPage() {
           <tbody>
             {points.length === 0 && (
               <TableEmpty
-                colSpan={6}
+                colSpan={7}
                 title="Nenhum ponto de check-in cadastrado ainda"
                 hint="Cadastre as quadras/unidades do seu clube no formulário acima."
               />
@@ -165,6 +183,7 @@ export function CheckinPointsPage() {
                 <td className="cell-strong">{p.name}</td>
                 <td><AppBadge app={p.app} /></td>
                 <td>{p.externalId}</td>
+                <td className={p.pricePerCheckinCents == null ? "muted" : undefined}>{formatMoneyCents(p.pricePerCheckinCents)}</td>
                 <td>
                   <div className="product-chips">
                     {p.products.length === 0 ? (

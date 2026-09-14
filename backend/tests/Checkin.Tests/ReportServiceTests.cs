@@ -7,8 +7,9 @@ using Xunit;
 namespace Checkin.Tests;
 
 /// <summary>
-/// Cobre os relatórios de "métricas de dia a dia" da Fase 1 do roadmap: engajamento (alunos
-/// sumidos), horário de pico, ocupação/no-show de aulas e crescimento da base.
+/// Cobre os relatórios de "métricas de dia a dia" do roadmap — Fase 1: engajamento (alunos
+/// sumidos), horário de pico, ocupação/no-show de aulas e crescimento da base; Fase 2:
+/// conciliação de repasse, penetração de app e ranking de unidades com variação.
 /// </summary>
 public class ReportServiceTests
 {
@@ -29,8 +30,15 @@ public class ReportServiceTests
         return student;
     }
 
-    private void SeedCheckin(string studentId, DateTime occurredAt) =>
-        _checkins.Records.Add(new CheckinRecord { TenantId = TenantId, StudentId = studentId, CheckinPointId = "point-1", OccurredAt = occurredAt });
+    private void SeedCheckin(string studentId, DateTime occurredAt, string checkinPointId = "point-1", CheckinStatus status = CheckinStatus.Approved) =>
+        _checkins.Records.Add(new CheckinRecord { TenantId = TenantId, StudentId = studentId, CheckinPointId = checkinPointId, OccurredAt = occurredAt, Status = status });
+
+    private CheckinPoint SeedPoint(string id, string name, int? pricePerCheckinCents = null)
+    {
+        var point = new CheckinPoint { Id = id, TenantId = TenantId, App = IntegrationApp.Wellhub, Name = name, PricePerCheckinCents = pricePerCheckinCents };
+        _points.Points.Add(point);
+        return point;
+    }
 
     [Fact]
     public async Task Engagement_ranks_students_who_never_checked_in_alongside_the_longest_absent()
@@ -153,5 +161,100 @@ public class ReportServiceTests
         Assert.Equal(2, report.Periods.Count);
         Assert.Equal(new DateTime(2026, 8, 1), report.Periods[0].PeriodStart);
         Assert.Equal(new DateTime(2026, 9, 1), report.Periods[1].PeriodStart);
+    }
+
+    [Fact]
+    public async Task Revenue_multiplies_approved_checkins_by_the_configured_price_per_point()
+    {
+        var now = DateTime.UtcNow;
+        SeedPoint("point-1", "Unidade A", pricePerCheckinCents: 150);
+        SeedPoint("point-2", "Unidade B", pricePerCheckinCents: null); // sem valor configurado
+
+        SeedCheckin("s1", now, "point-1", CheckinStatus.Approved);
+        SeedCheckin("s2", now, "point-1", CheckinStatus.Approved);
+        SeedCheckin("s3", now, "point-1", CheckinStatus.Rejected); // não conta — não foi aprovado
+        SeedCheckin("s4", now, "point-2", CheckinStatus.Approved);
+
+        var report = await BuildService().RevenueAsync(null, null);
+
+        Assert.Equal(3, report.TotalApprovedCheckins); // 2 aprovados na A + 1 na B (a rejeitada não entra)
+        Assert.Equal(300, report.TotalEstimatedRevenueCents); // só a Unidade A tem valor configurado: 2 × 150
+        Assert.Equal(1, report.PointsWithoutPriceConfigured);
+
+        var pointA = report.ByPoint.Single(p => p.CheckinPointId == "point-1");
+        Assert.Equal(2, pointA.ApprovedCheckins);
+        Assert.Equal(300, pointA.EstimatedRevenueCents);
+
+        var pointB = report.ByPoint.Single(p => p.CheckinPointId == "point-2");
+        Assert.Equal(1, pointB.ApprovedCheckins);
+        Assert.Null(pointB.EstimatedRevenueCents); // nunca estima em cima de valor não informado
+    }
+
+    [Fact]
+    public async Task Revenue_returns_null_total_when_no_point_has_a_price_configured()
+    {
+        SeedPoint("point-1", "Unidade A", pricePerCheckinCents: null);
+        SeedCheckin("s1", DateTime.UtcNow, "point-1");
+
+        var report = await BuildService().RevenueAsync(null, null);
+
+        Assert.Null(report.TotalEstimatedRevenueCents);
+        Assert.Equal(1, report.PointsWithoutPriceConfigured);
+    }
+
+    [Fact]
+    public async Task AppPenetration_computes_percentage_of_active_students_per_app()
+    {
+        var withWellhub = SeedStudent("Ana", DateTime.UtcNow);
+        withWellhub.WellhubMemberId = "w-1";
+        var withTotalPass = SeedStudent("Bruno", DateTime.UtcNow);
+        withTotalPass.TotalPassMemberId = "t-1";
+        var withNeither = SeedStudent("Carla", DateTime.UtcNow);
+        var inactive = SeedStudent("Dani", DateTime.UtcNow);
+        inactive.Active = false;
+        inactive.WellhubMemberId = "w-2"; // não deve contar — aluno inativo
+
+        var report = await BuildService().AppPenetrationAsync();
+
+        Assert.Equal(3, report.TotalActiveStudents); // Ana, Bruno, Carla — Dani está inativa
+        var wellhub = report.Items.Single(i => i.App == "Wellhub");
+        Assert.Equal(1, wellhub.ActiveStudents);
+        Assert.Equal(0.3333, wellhub.Percent, precision: 4);
+    }
+
+    [Fact]
+    public async Task SchoolRanking_compares_current_period_against_the_previous_one_of_equal_length()
+    {
+        SeedPoint("point-1", "Unidade A");
+        var periodStart = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc); // janela de 7 dias
+
+        // Período anterior (25/08 a 01/09): 2 check-ins.
+        SeedCheckin("s1", periodStart.AddDays(-3), "point-1");
+        SeedCheckin("s2", periodStart.AddDays(-1), "point-1");
+        // Período atual (01/09 a 08/09): 3 check-ins — cresceu 50%.
+        SeedCheckin("s1", periodStart.AddDays(1), "point-1");
+        SeedCheckin("s2", periodStart.AddDays(2), "point-1");
+        SeedCheckin("s3", periodStart.AddDays(3), "point-1");
+
+        var report = await BuildService().SchoolRankingAsync(periodStart, periodEnd);
+
+        var item = report.Items.Single(i => i.CheckinPointId == "point-1");
+        Assert.Equal(3, item.TotalCheckins);
+        Assert.Equal(2, item.PreviousPeriodCheckins);
+        Assert.Equal(0.5, item.ChangePercent);
+    }
+
+    [Fact]
+    public async Task SchoolRanking_reports_null_change_when_the_previous_period_had_no_checkins()
+    {
+        SeedPoint("point-1", "Unidade A");
+        SeedCheckin("s1", DateTime.UtcNow, "point-1"); // dentro da janela padrão de 30 dias
+
+        var report = await BuildService().SchoolRankingAsync(null, null);
+
+        var item = report.Items.Single(i => i.CheckinPointId == "point-1");
+        Assert.Equal(0, item.PreviousPeriodCheckins);
+        Assert.Null(item.ChangePercent); // "novo" na UI, não uma variação de 0% ou infinita
     }
 }

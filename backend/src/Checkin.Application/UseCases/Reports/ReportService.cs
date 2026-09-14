@@ -185,4 +185,89 @@ public class ReportService
         var diff = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
         return DateTime.SpecifyKind(date.Date.AddDays(-diff), DateTimeKind.Utc);
     }
+
+    /// <summary>Conciliação de repasse: check-ins Approved × valor/check-in configurado por
+    /// ponto, filtrável por data. Diferencial que só o OmniClub calcula — nenhum sistema de
+    /// gestão de academia genérico tem acesso ao dado de check-in do app de benefício.</summary>
+    public async Task<RevenueReportDto> RevenueAsync(DateTime? start, DateTime? end, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var records = await _checkinRepository.ListAsync(tenantId, start, end, ct: ct);
+        var points = await _checkinPointRepository.ListAsync(tenantId, ct);
+
+        var approvedByPoint = records
+            .Where(r => r.Status == CheckinStatus.Approved)
+            .GroupBy(r => r.CheckinPointId)
+            .ToDictionary(g => g.Key, g => g.LongCount());
+
+        var items = points
+            .Select(p =>
+            {
+                approvedByPoint.TryGetValue(p.Id, out var approved);
+                long? revenue = p.PricePerCheckinCents.HasValue ? approved * p.PricePerCheckinCents.Value : null;
+                return new RevenuePerPointDto(p.Id, p.Name, p.App.ToString(), approved, p.PricePerCheckinCents, revenue);
+            })
+            .OrderByDescending(x => x.EstimatedRevenueCents ?? -1) // configurados primeiro, ordenados por valor; não configurados no fim
+            .ThenByDescending(x => x.ApprovedCheckins)
+            .ToList();
+
+        var configured = items.Where(i => i.EstimatedRevenueCents.HasValue).ToList();
+
+        return new RevenueReportDto(
+            items.Sum(i => i.ApprovedCheckins),
+            configured.Count == 0 ? null : configured.Sum(i => i.EstimatedRevenueCents!.Value),
+            items,
+            items.Count(i => !i.PricePerCheckinCents.HasValue));
+    }
+
+    /// <summary>Quanto da base de alunos ativos cada app de benefício representa — foto de
+    /// agora, não filtrável por período (mesma filosofia do relatório de Engajamento).</summary>
+    public async Task<AppPenetrationReportDto> AppPenetrationAsync(CancellationToken ct = default)
+    {
+        var activeStudents = (await _studentRepository.ListAsync(_tenantContext.TenantId, ct))
+            .Where(s => s.Active)
+            .ToList();
+
+        var items = Enum.GetValues<IntegrationApp>()
+            .Select(app =>
+            {
+                var withApp = activeStudents.Count(s => app switch
+                {
+                    IntegrationApp.Wellhub => !string.IsNullOrEmpty(s.WellhubMemberId),
+                    IntegrationApp.TotalPass => !string.IsNullOrEmpty(s.TotalPassMemberId),
+                    _ => false,
+                });
+                var percent = activeStudents.Count == 0 ? 0 : Math.Round((double)withApp / activeStudents.Count, 4);
+                return new AppPenetrationItemDto(app.ToString(), withApp, percent);
+            })
+            .ToList();
+
+        return new AppPenetrationReportDto(activeStudents.Count, items);
+    }
+
+    /// <summary>Ranking de unidades com variação período a período — compara o período pedido
+    /// (padrão: últimos 30 dias) com o período anterior de mesma duração, logo antes dele.</summary>
+    public async Task<SchoolRankingReportDto> SchoolRankingAsync(DateTime? start, DateTime? end, CancellationToken ct = default)
+    {
+        var periodEnd = end ?? DateTime.UtcNow;
+        var periodStart = start ?? periodEnd.AddDays(-30);
+        var duration = periodEnd - periodStart;
+        var previousStart = periodStart - duration;
+
+        var current = await BySchoolAsync(periodStart, periodEnd, null, ct);
+        var previousByPoint = (await BySchoolAsync(previousStart, periodStart, null, ct))
+            .ToDictionary(p => p.CheckinPointId, p => p.TotalCheckins);
+
+        var items = current
+            .Select(c =>
+            {
+                previousByPoint.TryGetValue(c.CheckinPointId, out var previousTotal);
+                double? changePercent = previousTotal == 0 ? null : Math.Round((double)(c.TotalCheckins - previousTotal) / previousTotal, 4);
+                return new SchoolRankingItemDto(c.CheckinPointId, c.CheckinPointName, c.App, c.TotalCheckins, previousTotal, changePercent);
+            })
+            .OrderByDescending(x => x.TotalCheckins)
+            .ToList();
+
+        return new SchoolRankingReportDto(periodStart, periodEnd, items);
+    }
 }

@@ -19,6 +19,12 @@ public class CheckinPoint
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Valor (em centavos) que o app de benefício repassa à academia por check-in
+    /// aprovado neste ponto — negociado no contrato com o Wellhub/TotalPass, varia por unidade.
+    /// Nulo enquanto o admin não configurar (relatório de repasse fica "não configurado" até lá,
+    /// ver ReportService.RevenueAsync — nunca estimamos em cima de um valor que não foi informado).</summary>
+    public int? PricePerCheckinCents { get; set; }
+
     /// <summary>Produtos Wellhub vinculados a este ponto (ver CheckinPointService.SyncProductsAsync
     /// e WellhubProductRef). Vazio até alguém clicar em "Buscar produtos" no cadastro do ponto.</summary>
     public List<WellhubProductRef> Products { get; set; } = new();

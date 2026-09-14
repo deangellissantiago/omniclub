@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   downloadReportCsv,
+  getAppPenetrationReport,
   getAttendanceReport,
   getEngagementReport,
   getGeneralReport,
@@ -9,8 +10,11 @@ import {
   getPeakHoursReport,
   getReportByStudent,
   getReportBySchool,
+  getRevenueReport,
+  getSchoolRankingReport,
 } from "../api/reports";
 import type {
+  AppPenetrationReport,
   AttendanceReport,
   BookingStatus,
   EngagementReport,
@@ -18,15 +22,18 @@ import type {
   GrowthReport,
   PeakHourCell,
   PeakHoursReport,
+  RevenueReport,
+  SchoolRankingReport,
   SchoolReportItem,
   StudentReportItem,
   WeekDay,
 } from "../api/types";
 import { extractErrorMessage } from "../api/client";
+import { formatMoneyCents } from "../lib/money";
 import { DateRangeFilter } from "../components/DateRangeFilter";
-import { AppBadge, Avatar, EmptyState, EngagementBadge, IconCheckCircle, IconDownload, IconMapPin, TableEmpty } from "../components/ui";
+import { AppBadge, Avatar, EmptyState, EngagementBadge, IconCheckCircle, IconCreditCard, IconDownload, IconMapPin, TableEmpty } from "../components/ui";
 
-type Tab = "general" | "student" | "school" | "engagement" | "peak-hours" | "attendance" | "growth";
+type Tab = "general" | "student" | "school" | "engagement" | "peak-hours" | "attendance" | "growth" | "revenue";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "general", label: "Geral" },
@@ -36,6 +43,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "peak-hours", label: "Horários de pico" },
   { key: "attendance", label: "Aulas" },
   { key: "growth", label: "Crescimento" },
+  { key: "revenue", label: "Repasse" },
 ];
 
 const WEEKDAYS: { key: WeekDay; label: string }[] = [
@@ -79,6 +87,9 @@ export function ReportsPage() {
   const [peakHours, setPeakHours] = useState<PeakHoursReport | null>(null);
   const [attendance, setAttendance] = useState<AttendanceReport | null>(null);
   const [growth, setGrowth] = useState<GrowthReport | null>(null);
+  const [revenue, setRevenue] = useState<RevenueReport | null>(null);
+  const [appPenetration, setAppPenetration] = useState<AppPenetrationReport | null>(null);
+  const [schoolRanking, setSchoolRanking] = useState<SchoolRankingReport | null>(null);
 
   const filter = { startDate: startDate || undefined, endDate: endDate || undefined };
 
@@ -96,7 +107,12 @@ export function ReportsPage() {
       : tab === "engagement" ? getEngagementReport().then(setEngagement)
       : tab === "peak-hours" ? getPeakHoursReport(filter).then(setPeakHours)
       : tab === "attendance" ? getAttendanceReport(filter).then(setAttendance)
-      : getGrowthReport(filter).then(setGrowth);
+      : tab === "growth" ? getGrowthReport(filter).then(setGrowth)
+      : Promise.all([
+          getRevenueReport(filter).then(setRevenue),
+          getAppPenetrationReport().then(setAppPenetration),
+          getSchoolRankingReport(filter).then(setSchoolRanking),
+        ]);
 
     load.catch((err) => setError(extractErrorMessage(err)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,6 +382,107 @@ export function ReportsPage() {
           <GrowthChart periods={growth.periods} groupBy={growth.groupBy} />
         </section>
       )}
+
+      {tab === "revenue" && revenue && (
+        <>
+          <section className="cards-row">
+            <div className="stat-card">
+              <span className="stat-icon tint-blue"><IconCheckCircle size={20} /></span>
+              <div className="stat-body">
+                <span className="stat-label">Check-ins aprovados</span>
+                <span className="stat-value">{revenue.totalApprovedCheckins}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon tint-purple"><IconCreditCard size={20} /></span>
+              <div className="stat-body">
+                <span className="stat-label">Receita estimada</span>
+                <span className="stat-value">{formatMoneyCents(revenue.totalEstimatedRevenueCents)}</span>
+              </div>
+            </div>
+            {revenue.pointsWithoutPriceConfigured > 0 && (
+              <div className="stat-card">
+                <span className="stat-icon tint-lemon"><IconCreditCard size={20} /></span>
+                <div className="stat-body">
+                  <span className="stat-label">Pontos sem valor configurado</span>
+                  <span className="stat-value">{revenue.pointsWithoutPriceConfigured}</span>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {revenue.pointsWithoutPriceConfigured > 0 && (
+            <p className="muted">
+              Configure o valor por check-in de cada ponto em{" "}
+              <Link className="btn-link" to="/pontos-de-checkin" style={{ padding: 0 }}>Pontos de check-in</Link>{" "}
+              pra ver a receita estimada completa.
+            </p>
+          )}
+
+          <section className="panel panel-table">
+            <div className="panel-toolbar">
+              <h2>Repasse por ponto</h2>
+              <button className="btn-ghost" onClick={() => downloadReportCsv("/reports/revenue/export", filter, "relatorio-repasse.csv")}>
+                <IconDownload size={16} /> Exportar CSV
+              </button>
+            </div>
+            <table className="data-table">
+              <thead><tr><th>Ponto</th><th>App</th><th>Check-ins aprovados</th><th>Valor/check-in</th><th>Receita estimada</th></tr></thead>
+              <tbody>
+                {revenue.byPoint.length === 0 && <TableEmpty colSpan={5} title="Nenhum ponto de check-in cadastrado" />}
+                {revenue.byPoint.map((p) => (
+                  <tr key={p.checkinPointId}>
+                    <td className="cell-strong">{p.checkinPointName}</td>
+                    <td><AppBadge app={p.app} /></td>
+                    <td>{p.approvedCheckins}</td>
+                    <td className={p.pricePerCheckinCents == null ? "muted" : undefined}>{formatMoneyCents(p.pricePerCheckinCents)}</td>
+                    <td className={p.estimatedRevenueCents == null ? "muted" : "cell-strong"}>{formatMoneyCents(p.estimatedRevenueCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          {appPenetration && (
+            <section className="panel">
+              <h2>Penetração por app</h2>
+              <p className="muted">Quanto da base de {appPenetration.totalActiveStudents} alunos ativos cada app representa.</p>
+              <div className="bar-list">
+                {appPenetration.items.map((i) => (
+                  <div className="bar-row" key={i.app}>
+                    <span className="bar-label">{i.app}</span>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{ width: `${i.percent * 100}%` }} />
+                    </div>
+                    <span className="bar-value">{i.activeStudents} ({Math.round(i.percent * 100)}%)</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {schoolRanking && (
+            <section className="panel panel-table">
+              <h2>Ranking de unidades</h2>
+              <table className="data-table">
+                <thead><tr><th>Ponto</th><th>App</th><th>Check-ins no período</th><th>Período anterior</th><th>Variação</th></tr></thead>
+                <tbody>
+                  {schoolRanking.items.length === 0 && <TableEmpty colSpan={5} title="Sem dados no período" />}
+                  {schoolRanking.items.map((i) => (
+                    <tr key={i.checkinPointId}>
+                      <td className="cell-strong">{i.checkinPointName}</td>
+                      <td><AppBadge app={i.app} /></td>
+                      <td>{i.totalCheckins}</td>
+                      <td>{i.previousPeriodCheckins}</td>
+                      <td><ChangeBadge changePercent={i.changePercent} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -432,4 +549,20 @@ function GrowthChart({ periods, groupBy }: { periods: { periodStart: string; new
       ))}
     </div>
   );
+}
+
+/** Variação percentual de um ponto vs. o período anterior — "Novo" (sem período anterior pra
+ * comparar) em vez de 0%/infinito quando `changePercent` é nulo. */
+function ChangeBadge({ changePercent }: { changePercent?: number | null }) {
+  if (changePercent == null) {
+    return <span className="badge badge-pending"><span className="dot" />Novo</span>;
+  }
+  const percent = Math.round(changePercent * 100);
+  if (percent > 0) {
+    return <span className="badge badge-approved"><span className="dot" />▲ {percent}%</span>;
+  }
+  if (percent < 0) {
+    return <span className="badge badge-rejected"><span className="dot" />▼ {Math.abs(percent)}%</span>;
+  }
+  return <span className="badge badge-app-wellhub"><span className="dot" />Estável</span>;
 }

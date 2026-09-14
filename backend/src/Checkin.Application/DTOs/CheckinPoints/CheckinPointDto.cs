@@ -10,4 +10,5 @@ public record CheckinPointDto(
     string Name,
     bool Active,
     DateTime CreatedAt,
-    IReadOnlyList<WellhubProductDto> Products);
+    IReadOnlyList<WellhubProductDto> Products,
+    int? PricePerCheckinCents);

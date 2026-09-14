@@ -42,7 +42,8 @@ public class CheckinPointService
             App = request.App,
             ExternalId = request.ExternalId,
             Name = request.Name,
-            Active = request.Active
+            Active = request.Active,
+            PricePerCheckinCents = request.PricePerCheckinCents
         };
         var created = await _repository.CreateAsync(point, ct);
         return ToDto(created);
@@ -57,6 +58,7 @@ public class CheckinPointService
         point.ExternalId = request.ExternalId;
         point.Name = request.Name;
         point.Active = request.Active;
+        point.PricePerCheckinCents = request.PricePerCheckinCents;
 
         await _repository.UpdateAsync(point, ct);
         return ToDto(point);
@@ -93,5 +95,6 @@ public class CheckinPointService
 
     private static CheckinPointDto ToDto(CheckinPoint p) => new(
         p.Id, p.App, p.ExternalId, p.Name, p.Active, p.CreatedAt,
-        p.Products.Select(pr => new WellhubProductDto(pr.ProductId, pr.Name, pr.Virtual)).ToList());
+        p.Products.Select(pr => new WellhubProductDto(pr.ProductId, pr.Name, pr.Virtual)).ToList(),
+        p.PricePerCheckinCents);
 }

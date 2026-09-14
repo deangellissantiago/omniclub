@@ -1,11 +1,14 @@
 import { apiClient } from "./client";
 import type {
+  AppPenetrationReport,
   AttendanceReport,
   DateRangeFilter,
   EngagementReport,
   GeneralReport,
   GrowthReport,
   PeakHoursReport,
+  RevenueReport,
+  SchoolRankingReport,
   SchoolReportItem,
   StudentReportItem,
 } from "./types";
@@ -43,6 +46,23 @@ export async function getAttendanceReport(filter: DateRangeFilter): Promise<Atte
 
 export async function getGrowthReport(filter: DateRangeFilter & { groupBy?: "week" | "month" }): Promise<GrowthReport> {
   const { data } = await apiClient.get<GrowthReport>("/reports/growth", { params: filter });
+  return data;
+}
+
+/** Conciliação de repasse Wellhub/TotalPass (check-ins aprovados × valor/check-in configurado). */
+export async function getRevenueReport(filter: DateRangeFilter): Promise<RevenueReport> {
+  const { data } = await apiClient.get<RevenueReport>("/reports/revenue", { params: filter });
+  return data;
+}
+
+/** Não aceita filtro de data — é sempre "a situação agora". */
+export async function getAppPenetrationReport(): Promise<AppPenetrationReport> {
+  const { data } = await apiClient.get<AppPenetrationReport>("/reports/app-penetration");
+  return data;
+}
+
+export async function getSchoolRankingReport(filter: DateRangeFilter): Promise<SchoolRankingReport> {
+  const { data } = await apiClient.get<SchoolRankingReport>("/reports/school-ranking", { params: filter });
   return data;
 }
 
