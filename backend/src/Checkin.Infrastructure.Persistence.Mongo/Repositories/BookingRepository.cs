@@ -25,4 +25,15 @@ public class BookingRepository : IBookingRepository
 
     public async Task<Booking?> FindByExternalBookingIdAsync(string tenantId, string externalBookingId, CancellationToken ct = default) =>
         await _context.Bookings.Find(b => b.TenantId == tenantId && b.ExternalBookingId == externalBookingId).FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<Booking>> ListAsync(string tenantId, DateTime? start, DateTime? end, CancellationToken ct = default)
+    {
+        var builder = Builders<Booking>.Filter;
+        var filter = builder.Eq(b => b.TenantId, tenantId);
+
+        if (start.HasValue) filter &= builder.Gte(b => b.RequestedAt, start.Value);
+        if (end.HasValue) filter &= builder.Lte(b => b.RequestedAt, end.Value);
+
+        return await _context.Bookings.Find(filter).SortByDescending(b => b.RequestedAt).ToListAsync(ct);
+    }
 }

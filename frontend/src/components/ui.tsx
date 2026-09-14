@@ -35,10 +35,10 @@ export function BrandLockup({ logoSize = 34, onLight = false }: { logoSize?: num
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
-function Icon({ size = 18, children, ...rest }: IconProps & { children: ReactNode }) {
+function Icon({ size = 18, children, className, ...rest }: IconProps & { children: ReactNode }) {
   return (
     <svg
-      className="icon"
+      className={className ? `icon ${className}` : "icon"}
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -117,6 +117,22 @@ export const IconInbox = (p: IconProps) => (
   </Icon>
 );
 
+export const IconDownload = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </Icon>
+);
+
+export const IconAlertTriangle = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </Icon>
+);
+
 /* ---------- Avatar com iniciais ---------- */
 
 export function Avatar({ name, small = false }: { name?: string | null; small?: boolean }) {
@@ -159,17 +175,41 @@ export function AppBadge({ app }: { app: IntegrationApp | string }) {
   return <span className={`badge badge-app-${String(app).toLowerCase()}`}>{app}</span>;
 }
 
-/* ---------- Estado vazio para tabelas ---------- */
+/** Situação de frequência de um aluno — usado no relatório de Engajamento e no widget de
+ * "alunos sumidos" do Dashboard. Mesmos limiares nos dois lugares: 14 dias já chama atenção,
+ * 30 dias (ou nunca veio) é o alerta de risco de evasão. */
+export function EngagementBadge({ daysSinceLastCheckin }: { daysSinceLastCheckin?: number | null }) {
+  if (daysSinceLastCheckin == null) {
+    return <span className="badge badge-rejected"><span className="dot" />Nunca veio</span>;
+  }
+  if (daysSinceLastCheckin >= 30) {
+    return <span className="badge badge-rejected"><span className="dot" />Sumiu há {daysSinceLastCheckin} dias</span>;
+  }
+  if (daysSinceLastCheckin >= 14) {
+    return <span className="badge badge-pending"><span className="dot" />{daysSinceLastCheckin} dias sem vir</span>;
+  }
+  return <span className="badge badge-approved"><span className="dot" />Em dia</span>;
+}
+
+/* ---------- Estado vazio ---------- */
+
+/** Miolo do estado vazio, sem o `<tr>` — para usar fora de tabela (ex.: heatmap, gráfico de
+ * barras). Dentro de uma `<table>`, use `TableEmpty`. */
+export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="empty-state">
+      <div className="icon-ring"><IconInbox size={20} /></div>
+      <strong>{title}</strong>
+      {hint && <span>{hint}</span>}
+    </div>
+  );
+}
 
 export function TableEmpty({ colSpan, title, hint }: { colSpan: number; title: string; hint?: string }) {
   return (
     <tr>
       <td colSpan={colSpan} className="empty-row">
-        <div className="empty-state">
-          <div className="icon-ring"><IconInbox size={20} /></div>
-          <strong>{title}</strong>
-          {hint && <span>{hint}</span>}
-        </div>
+        <EmptyState title={title} hint={hint} />
       </td>
     </tr>
   );

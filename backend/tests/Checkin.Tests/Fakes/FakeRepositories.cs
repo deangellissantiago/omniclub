@@ -79,14 +79,30 @@ public class FakeCheckinRecordRepository : ICheckinRecordRepository
         Task.FromResult((IReadOnlyList<CheckinRecord>)Records.Where(r => r.TenantId == tenantId).Take(take).ToList());
 
     public Task<IReadOnlyList<CheckinRecord>> ListAsync(
-        string tenantId, DateTime? start, DateTime? end, string? studentId = null, string? checkinPointId = null, CancellationToken ct = default) =>
-        Task.FromResult((IReadOnlyList<CheckinRecord>)Records.Where(r => r.TenantId == tenantId).ToList());
+        string tenantId, DateTime? start, DateTime? end, string? studentId = null, string? checkinPointId = null, CancellationToken ct = default)
+    {
+        IEnumerable<CheckinRecord> query = Records.Where(r => r.TenantId == tenantId);
+        if (start.HasValue) query = query.Where(r => r.OccurredAt >= start.Value);
+        if (end.HasValue) query = query.Where(r => r.OccurredAt <= end.Value);
+        if (studentId is not null) query = query.Where(r => r.StudentId == studentId);
+        if (checkinPointId is not null) query = query.Where(r => r.CheckinPointId == checkinPointId);
+        return Task.FromResult((IReadOnlyList<CheckinRecord>)query.ToList());
+    }
 
     public Task<long> CountAsync(string tenantId, DateTime? start, DateTime? end, CancellationToken ct = default) =>
         Task.FromResult(Records.LongCount(r => r.TenantId == tenantId));
 
     public Task<long> CountByAppAsync(string tenantId, IntegrationApp app, DateTime? start, DateTime? end, CancellationToken ct = default) =>
         Task.FromResult(Records.LongCount(r => r.TenantId == tenantId && r.App == app));
+
+    public Task<IReadOnlyDictionary<string, DateTime>> GetLastCheckinAtByStudentAsync(string tenantId, CancellationToken ct = default)
+    {
+        var result = Records
+            .Where(r => r.TenantId == tenantId && r.StudentId is not null)
+            .GroupBy(r => r.StudentId!)
+            .ToDictionary(g => g.Key, g => g.Max(r => r.OccurredAt));
+        return Task.FromResult((IReadOnlyDictionary<string, DateTime>)result);
+    }
 }
 
 public class FakeCurrentTenantContext : ICurrentTenantContext

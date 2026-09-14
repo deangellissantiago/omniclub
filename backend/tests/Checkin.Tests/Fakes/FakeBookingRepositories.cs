@@ -65,4 +65,12 @@ public class FakeBookingRepository : IBookingRepository
 
     public Task<Booking?> FindByExternalBookingIdAsync(string tenantId, string externalBookingId, CancellationToken ct = default) =>
         Task.FromResult(Bookings.FirstOrDefault(b => b.TenantId == tenantId && b.ExternalBookingId == externalBookingId));
+
+    public Task<IReadOnlyList<Booking>> ListAsync(string tenantId, DateTime? start, DateTime? end, CancellationToken ct = default)
+    {
+        IEnumerable<Booking> query = Bookings.Where(b => b.TenantId == tenantId);
+        if (start.HasValue) query = query.Where(b => b.RequestedAt >= start.Value);
+        if (end.HasValue) query = query.Where(b => b.RequestedAt <= end.Value);
+        return Task.FromResult((IReadOnlyList<Booking>)query.ToList());
+    }
 }

@@ -117,3 +117,55 @@ export interface DateRangeFilter {
   startDate?: string;
   endDate?: string;
 }
+
+export interface StudentEngagement {
+  studentId: string;
+  studentName: string;
+  lastCheckinAt?: string | null;
+  /** Nulo quando o aluno nunca fez check-in nenhum. */
+  daysSinceLastCheckin?: number | null;
+  checkinsLast30Days: number;
+  avgCheckinsPerWeek: number;
+}
+
+/** Não é filtrável por período — sempre relativo a "agora" (`asOf`), ver ReportService.EngagementAsync no backend. */
+export interface EngagementReport {
+  students: StudentEngagement[];
+  asOf: string;
+}
+
+export type WeekDay = "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
+
+export interface PeakHourCell {
+  dayOfWeek: WeekDay;
+  hour: number;
+  totalCheckins: number;
+}
+
+export interface PeakHoursReport {
+  cells: PeakHourCell[];
+}
+
+export type BookingStatus = "Requested" | "Confirmed" | "Rejected" | "Canceled" | "LateCanceled";
+
+export interface BookingStatusCount {
+  status: BookingStatus;
+  total: number;
+}
+
+export interface AttendanceReport {
+  totalBookings: number;
+  byStatus: BookingStatusCount[];
+  occupancyRate: number;
+  noShowRate: number;
+}
+
+export interface GrowthPeriod {
+  periodStart: string;
+  newStudents: number;
+}
+
+export interface GrowthReport {
+  groupBy: "week" | "month";
+  periods: GrowthPeriod[];
+}

@@ -47,6 +47,20 @@ public class CheckinRecordRepository : ICheckinRecordRepository
         return await _context.CheckinRecords.CountDocumentsAsync(filter, cancellationToken: ct);
     }
 
+    public async Task<IReadOnlyDictionary<string, DateTime>> GetLastCheckinAtByStudentAsync(string tenantId, CancellationToken ct = default)
+    {
+        // Única agregação do Mongo no projeto (o resto é Find + LINQ em memória, ver outros
+        // repositórios): aqui compensa, porque "máximo por aluno" olhando o histórico inteiro de
+        // check-ins seria caro demais para trazer registro por registro só para achar o mais
+        // recente de cada um.
+        var results = await _context.CheckinRecords.Aggregate()
+            .Match(r => r.TenantId == tenantId && r.StudentId != null)
+            .Group(r => r.StudentId, g => new { StudentId = g.Key!, LastCheckinAt = g.Max(r => r.OccurredAt) })
+            .ToListAsync(ct);
+
+        return results.ToDictionary(r => r.StudentId, r => r.LastCheckinAt);
+    }
+
     private static FilterDefinition<CheckinRecord> BuildFilter(
         string tenantId, DateTime? start, DateTime? end, string? studentId, string? checkinPointId)
     {

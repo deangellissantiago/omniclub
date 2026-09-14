@@ -11,17 +11,20 @@ public class ReportService
     private readonly ICheckinRecordRepository _checkinRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly ICheckinPointRepository _checkinPointRepository;
+    private readonly IBookingRepository _bookingRepository;
     private readonly ICurrentTenantContext _tenantContext;
 
     public ReportService(
         ICheckinRecordRepository checkinRepository,
         IStudentRepository studentRepository,
         ICheckinPointRepository checkinPointRepository,
+        IBookingRepository bookingRepository,
         ICurrentTenantContext tenantContext)
     {
         _checkinRepository = checkinRepository;
         _studentRepository = studentRepository;
         _checkinPointRepository = checkinPointRepository;
+        _bookingRepository = bookingRepository;
         _tenantContext = tenantContext;
     }
 
@@ -75,5 +78,111 @@ public class ReportService
         var byCheckinPoint = await BySchoolAsync(start, end, null, ct);
 
         return new GeneralReportDto(total, byApp, topStudents, byCheckinPoint);
+    }
+
+    /// <summary>Situação de frequência de cada aluno ativo "agora" — não é filtrável por período,
+    /// sempre relativo ao instante da chamada: quando foi o último check-in de cada um e quantas
+    /// vezes apareceu nos últimos 30 dias. Base do widget "alunos sumidos" (ver roadmap Fase 1).</summary>
+    public async Task<EngagementReportDto> EngagementAsync(CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var now = DateTime.UtcNow;
+
+        var students = await _studentRepository.ListAsync(tenantId, ct);
+        var lastCheckins = await _checkinRepository.GetLastCheckinAtByStudentAsync(tenantId, ct);
+
+        var last30DaysRecords = await _checkinRepository.ListAsync(tenantId, now.AddDays(-30), now, ct: ct);
+        var last30DaysByStudent = last30DaysRecords
+            .Where(r => r.StudentId is not null)
+            .GroupBy(r => r.StudentId!)
+            .ToDictionary(g => g.Key, g => g.LongCount());
+
+        var items = students
+            .Where(s => s.Active)
+            .Select(s =>
+            {
+                var hasCheckedIn = lastCheckins.TryGetValue(s.Id, out var lastAt);
+                last30DaysByStudent.TryGetValue(s.Id, out var last30Days);
+
+                return new StudentEngagementDto(
+                    s.Id,
+                    s.Name,
+                    hasCheckedIn ? lastAt : null,
+                    hasCheckedIn ? (int)(now.Date - lastAt.Date).TotalDays : null,
+                    last30Days,
+                    Math.Round(last30Days / 30.0 * 7, 1));
+            })
+            // Quem nunca veio (sem check-in algum) aparece primeiro, junto dos mais "sumidos" —
+            // é o mesmo alerta de retenção que um aluno que veio uma vez há 90 dias.
+            .OrderByDescending(x => x.DaysSinceLastCheckin ?? int.MaxValue)
+            .ThenBy(x => x.StudentName)
+            .ToList();
+
+        return new EngagementReportDto(items, now);
+    }
+
+    /// <summary>Heatmap de horário de pico (dia da semana × hora), filtrável por data.</summary>
+    public async Task<PeakHoursReportDto> PeakHoursAsync(DateTime? start, DateTime? end, CancellationToken ct = default)
+    {
+        var records = await _checkinRepository.ListAsync(_tenantContext.TenantId, start, end, ct: ct);
+
+        var cells = records
+            .GroupBy(r => (r.OccurredAt.DayOfWeek, r.OccurredAt.Hour))
+            .Select(g => new PeakHourCellDto(g.Key.DayOfWeek, g.Key.Hour, g.LongCount()))
+            .OrderBy(c => c.DayOfWeek)
+            .ThenBy(c => c.Hour)
+            .ToList();
+
+        return new PeakHoursReportDto(cells);
+    }
+
+    /// <summary>Ocupação/no-show das aulas reservadas via Booking API, filtrável por data.</summary>
+    public async Task<AttendanceReportDto> AttendanceAsync(DateTime? start, DateTime? end, CancellationToken ct = default)
+    {
+        var bookings = await _bookingRepository.ListAsync(_tenantContext.TenantId, start, end, ct);
+
+        var byStatus = bookings
+            .GroupBy(b => b.Status)
+            .Select(g => new BookingStatusCountDto(g.Key, g.LongCount()))
+            .OrderBy(x => x.Status)
+            .ToList();
+
+        long CountOf(BookingStatus status) => byStatus.FirstOrDefault(x => x.Status == status)?.Total ?? 0;
+        var confirmed = CountOf(BookingStatus.Confirmed);
+        var rejected = CountOf(BookingStatus.Rejected);
+        var lateCanceled = CountOf(BookingStatus.LateCanceled);
+
+        var decided = confirmed + rejected;
+        var occupancyRate = decided == 0 ? 0 : Math.Round((double)confirmed / decided, 4);
+
+        var everConfirmed = confirmed + lateCanceled;
+        var noShowRate = everConfirmed == 0 ? 0 : Math.Round((double)lateCanceled / everConfirmed, 4);
+
+        return new AttendanceReportDto(bookings.Count, byStatus, occupancyRate, noShowRate);
+    }
+
+    /// <summary>Curva de crescimento da base de alunos (novos cadastros por semana ou mês),
+    /// filtrável por data.</summary>
+    public async Task<GrowthReportDto> GrowthAsync(DateTime? start, DateTime? end, string groupBy = "week", CancellationToken ct = default)
+    {
+        var byMonth = string.Equals(groupBy, "month", StringComparison.OrdinalIgnoreCase);
+        var students = await _studentRepository.ListAsync(_tenantContext.TenantId, ct);
+
+        var periods = students
+            .Where(s => (!start.HasValue || s.CreatedAt >= start.Value) && (!end.HasValue || s.CreatedAt <= end.Value))
+            .GroupBy(s => byMonth ? StartOfMonth(s.CreatedAt) : StartOfWeek(s.CreatedAt))
+            .Select(g => new GrowthPeriodDto(g.Key, g.LongCount()))
+            .OrderBy(p => p.PeriodStart)
+            .ToList();
+
+        return new GrowthReportDto(byMonth ? "month" : "week", periods);
+    }
+
+    private static DateTime StartOfMonth(DateTime date) => new(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var diff = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+        return DateTime.SpecifyKind(date.Date.AddDays(-diff), DateTimeKind.Utc);
     }
 }

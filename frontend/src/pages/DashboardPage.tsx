@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getDashboardSummary } from "../api/dashboard";
-import type { DashboardSummary } from "../api/types";
+import { getEngagementReport } from "../api/reports";
+import type { DashboardSummary, EngagementReport } from "../api/types";
 import { extractErrorMessage } from "../api/client";
 import {
   AppBadge,
   Avatar,
+  EngagementBadge,
+  IconAlertTriangle,
   IconCheckCircle,
   IconMapPin,
   IconUsers,
@@ -20,16 +24,25 @@ const APP_TINT: Record<string, string> = { Wellhub: "tint-sky", TotalPass: "tint
 
 export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [engagement, setEngagement] = useState<EngagementReport | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getDashboardSummary()
       .then(setSummary)
       .catch((err) => setError(extractErrorMessage(err)));
+    // Engajamento é opcional pro dashboard não quebrar por ele — se falhar, o resto continua de pé.
+    getEngagementReport()
+      .then(setEngagement)
+      .catch(() => setEngagement(null));
   }, []);
 
   if (error) return <p className="error-text">{error}</p>;
   if (!summary) return <p className="muted">Carregando...</p>;
+
+  const sumidos = (engagement?.students ?? [])
+    .filter((s) => s.daysSinceLastCheckin == null || s.daysSinceLastCheckin >= 14)
+    .slice(0, 5);
 
   return (
     <div>
@@ -103,6 +116,32 @@ export function DashboardPage() {
           </div>
         ))}
       </section>
+
+      {sumidos.length > 0 && (
+        <section className="panel panel-table">
+          <div className="panel-toolbar">
+            <h2><IconAlertTriangle size={18} className="icon-warning" /> Alunos sumidos</h2>
+            <Link className="btn-link" to="/relatorios?tab=engagement">Ver todos</Link>
+          </div>
+          <table className="data-table">
+            <thead><tr><th>Aluno</th><th>Situação</th><th>Último check-in</th></tr></thead>
+            <tbody>
+              {sumidos.map((s) => (
+                <tr key={s.studentId}>
+                  <td>
+                    <span className="cell-person">
+                      <Avatar name={s.studentName} small />
+                      <span className="cell-strong">{s.studentName}</span>
+                    </span>
+                  </td>
+                  <td><EngagementBadge daysSinceLastCheckin={s.daysSinceLastCheckin} /></td>
+                  <td>{s.lastCheckinAt ? formatDateTime(s.lastCheckinAt) : "Nunca veio"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section className="panel panel-table">
         <h2>Últimos check-ins</h2>

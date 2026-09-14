@@ -20,4 +20,9 @@ public interface ICheckinRecordRepository
     Task<long> CountAsync(string tenantId, DateTime? start, DateTime? end, CancellationToken ct = default);
 
     Task<long> CountByAppAsync(string tenantId, IntegrationApp app, DateTime? start, DateTime? end, CancellationToken ct = default);
+
+    /// <summary>Data do check-in mais recente de cada aluno (todo o histórico, não só um período) —
+    /// usado pelo relatório de engajamento (ver ReportService.EngagementAsync) para achar alunos
+    /// "sumidos" sem carregar o histórico inteiro de check-ins na memória.</summary>
+    Task<IReadOnlyDictionary<string, DateTime>> GetLastCheckinAtByStudentAsync(string tenantId, CancellationToken ct = default);
 }
