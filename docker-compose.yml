@@ -1,0 +1,55 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: checkin-mongo
+    restart: unless-stopped
+    # Não publicado no host de propósito: outros projetos nesta máquina já usam 27017/27018.
+    # O backend acessa via rede interna do compose (mongo:27017). Para inspecionar com um
+    # cliente Mongo local, publique uma porta livre aqui (ex.: "27099:27017").
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: checkin-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      MongoDb__ConnectionString: mongodb://mongo:27017
+      MongoDb__DatabaseName: checkin_db
+      Jwt__Secret: ${JWT_SECRET:-CHANGE_ME_super_secret_key_min_32_chars_long}
+      Jwt__Issuer: checkin-api
+      Jwt__Audience: checkin-clients
+      # Sem fallback vazio para BaseUrl: uma string vazia aqui sobrescreveria o default válido
+      # de appsettings.json e quebraria o HttpClient (sem BaseAddress) se o .env ficar em branco.
+      Wellhub__BaseUrl: ${WELLHUB_BASE_URL:-https://api.partners.gympass.com}
+      Wellhub__ApiKey: ${WELLHUB_API_KEY:-}
+      Wellhub__WebhookSecret: ${WELLHUB_WEBHOOK_SECRET:-CHANGE_ME_webhook_secret}
+      Billing__SecretKey: ${STRIPE_SECRET_KEY:-}
+      Billing__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
+      Billing__PriceAmountCents: ${STRIPE_PRICE_AMOUNT_CENTS:-9900}
+      Billing__Currency: ${STRIPE_CURRENCY:-brl}
+      Billing__FrontendBaseUrl: ${FRONTEND_URL:-http://localhost:5271}
+      Cors__AllowedOrigins__0: ${FRONTEND_URL:-http://localhost:5271}
+    ports:
+      - "5280:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5280/api}
+    container_name: checkin-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5271:80"
+
+volumes:
+  mongo-data:

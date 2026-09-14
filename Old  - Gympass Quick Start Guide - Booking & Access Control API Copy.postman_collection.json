@@ -1,0 +1,938 @@
+{
+  "info": {
+    "_postman_id": "fe2c3bd8-42f4-48ef-9845-66e6383a9791",
+    "name": "Old  - Gympass Quick Start Guide | Booking & Access Control API Copy",
+    "description": "<img src=\"https://content.pstmn.io/c86b5608-1c8b-4154-88c3-b30b7e51630f/R1AgTG9nby5wbmc=\">\n\n# **Welcome to the Gympass Getting Started Guide.**\n\nGympass is a SaaS platform designed to enable companies to extend the fitness and wellness programs to their employees as a wellness benefit. Employees are able to access the largest global network of gym partners fitness facilities and activities at a significantly reduced price.\n\nThis document covers the process of using the Gympass Booking API to create and edit classes for your gym or studio as well as the booking process for a Gympass user.\n\n## Booking API\n\nOur Booking API makes it possible to add classes and schedule them on to the Gympass platform. This is required for a successful integration with Gympass as it allows for our partners Class Inventory to be listed and bookable on the Gympass Ecosystem.\n\nWith our Booking API, you can leverage a seamless flow integrating your class system with our platform, allowing an easier and integrated process for booking.\n\nWith the help from our Webhooks we can then update our partners systems schedule automatically once a Gympass user has made a booking via our platform. Once you create a class on your system, Gympass receives the information via the Booking API and our Webhooks do all the work in maintaining synchronised information between both applications once a Gympass user has made a booking via our platform.\n\n## Access Control API\n\nGympass has a check-in process that ensures that partners are able to validate legitimate Gympass subscriber visits to their facilities.\n\nCheck-in is a core part of the Gympass customer UX and is essential for the correct payment of completed check-ins to our partners.\n\nFor this reason;\n\n1. **Check-ins must be done through the Gympass app for all visits by subscribers**\n    \n2. **Check-ins must be validated**\n    \n\nOnce the user performs a check-in on the Gympass app your system can use our Access Control API to confirm it.\n\nA check-in has an **expiration time**, which means that it must be validated in this given interval. When called, this API needs to send the gympass_id, which is the user’s unique number.\n\n# Webhooks\n\nThe [Gympass webhooks](https://developers.gympass.com/product/booking-api/1.0/webhooks) will notify you when specific events are triggered. This notification is a HTTP POST request to your registered URL.\n\nThe booking workflow relies on the use of 4 Webhooks:\n\n- **booking.requested** - Triggered whenever a new booking request is made.\n    \n- **booking.cancelation** - Triggered whenever a user cancels a previous booked class.\n    \n- **booking.LateCancelation** - Triggered whenever a user cancels a previous booked class AND they cancelled outside of the approved window.\n    \n\n> **We will required you to provide Gympass with a Webhook handler for us to direct the Gympass Webhooks to.** \n  \n\n---\n\n---\n\n# Getting Started!\n\nFirstly lets get you set up with our API collection.\n\n> **click the \"Run in Postman\" button in the top right of this page to import our API collection** \n  \n\n<img src=\"https://run.pstmn.io/button.svg\">\n\n## Authentication\n\nTo be able to use this API Test collection you will require the following:\n\n- System ID\n    \n- API Key\n    \n\nThe above will be provided to you by your Gympass Technical Sales contact. Please reach out to them directly referencing \"Test Environment Credentials\"\n\nThe Technical Sales team will produce and provide you with your credentials .\n\nIn this guide you will learn how to:\n\n1. `POST - Create` - Create a class on the Gympass Ecosystem.\n    \n2. `POST - Slots` - Schedule that class on the Gympass Platform ready for booking.\n    1. The class you create will be visible on your Gympass Test site\n        \n3. `GET - List/Get` - Get the list of classes and the schedules you have created.\n    \n4. `PATCH - Slots` - Update the one of your classes with the `class_id` and `Slot_id`\n    \n5. `PUT - Slots` - Update the Schedule information for one of your classes with the `class_id` and `Slot_id`.\n    \n\n> Once you have completed this getting started guide we'd love to connect with you to discuss moving in to development, Webhook details and provide you with production credentials.  \nWe'd also love to hear any feedback on how you found this getting started guide. \n  \n\n# Test users\n\nThere are 10 users that can be used to simulate activity in the testing environment.\n\nThey are preset, dummy users with fake data.\n\n**They in no way represent real users or Gympass employees.**\n\nGympass ID (UUID) || Name of Test user\n\n> The Gympass ID will always be a 13 digit integer \n  \n\n1. 1000000000001 (Mike Hightower)\n    \n2. 1000000000002 (Thomas Patrick)\n    \n3. 1000000000003 (Patty Cork)\n    \n4. 1000000000004 (Kathleen Young)\n    \n5. 1000000000005 (Susan Middaugh)\n    \n6. 1000000000006 (Paul Charleston)\n    \n7. 1000000000007 (Helen Powell)\n    \n8. 1000000000008 (John Smith)\n    \n9. 1000000000009 (Florence Hogan)\n    \n10. 1000000000010 (Sharon Grace)\n    \n\n# Environment\n\n- **Production Booking API URL** : [<b>https://api.partners.gympass.com</b>](https://api.partners.gympass.com)\n    \n- **Authentication Token** (_bearer_): Provided to you by the Gympass Tech Sales team - see [Authentication](https://developers.gympass.com/product/booking-api/1.0/getting-started#authentication)\n    \n\n# Additional Resources:\n\n- [Gympass Developer Portal](https://developers.gympass.com/product/booking-api/1.0/getting-started)\n    \n- [FAQ](https://developers.gympass.com/product/booking-api/1.0/faq)\n    \n- [UML Sequence Diagrams](https://developers.gympass.com/product/booking-api/1.0/getting-started)\n    \n- [Glossary](https://developers.gympass.com/product/booking-api/1.0/getting-started)\n    \n- [Gympass Customer Journey](https://developers.gympass.com/product/booking-api/1.0/getting-started)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "6289487"
+  },
+  "item": [
+    {
+      "name": "Booking API",
+      "item": [
+        {
+          "name": "Classes",
+          "item": [
+            {
+              "name": "Create classes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": " {\n    \"classes\": [\n        {\n            \"name\": \"Test Class\",\n            \"description\": \"Test class description\",\n            \"notes\": \"Test class notes\",\n            \"bookable\": true,\n            \"visible\": true,\n            \"is_virtual\": true,\n            \"product_id\": 100003\n        }\n    ]\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes"
+                  ]
+                },
+                "description": "Example of how to create a class on a given gym.\n\nRequest\n\n``` json\n {\n    \"classes\": [\n        {\n            \"name\": \"Test Class\",\n            \"description\": \"Test class description\",\n            \"notes\": \"Test class notes\",\n            \"bookable\": true,\n            \"visible\": true,\n            \"is_virtual\": true,\n            \"product_id\": 100003\n        }\n    ]\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| name | It's the human-readable name of the class. Max of 255 characters. | String | True |\n| description | It's the human-readable description of the class. | String | True |\n| notes | These are the human-readable notes that you can add to the class details. | String | False |\n| bookable | It indicates if the class can be reserved. Values: True or False. | Boolean | True |\n| visible | It indicates if the class is visible at Gympass app and website. Set this field to False if you want to hide the class for a while. If this is set to False, all related slots won’t be shown. Values: True or False. | Boolean | True |\n| product_id | Gym product identifier. Could be found listing all available gym products. | Int | True |\n| reference | It's a field used by the partner to link a class between Gympass Booking API and its integrated system. | String | False |\n| system_id | Id of partner's integrated system at Gympass. | Int | False |\n| categories | Array of IDs chosen from a list of categories provided by Gympass that specifies what kind of activity that class is about. (e.g. Yoga, Functional, Pilates...). | List - Int  <br>  <br>  <br>  <br>  <br>  <br> | False |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Content-Type | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n\nResponse\n\n``` json\n{\n    \"classes\": [\n        {\n            \"id\": 8268,\n            \"name\": \"Test Class\",\n            \"links\": [\n                {\n                    \"rel\": \"self\",\n                    \"href\": \"gyms/100001/classes/8268\"\n                }\n            ]\n        }\n    ]\n}\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "List classes",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes"
+                  ]
+                },
+                "description": "Example of how to get a list of classes on a given gym.\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n\nResponse\n\n``` json\n{\n  \"classes\": [\n    {\n      \"id\": 1,\n      \"name\": \"Cycle\",\n      \"slug\": \"cycle\",\n      \"description\": \"Our standard cycle classes\",\n      \"notes\": \"Notes\",\n      \"bookable\": true,\n      \"visible\": true,\n      \"product_id\": 1,\n      \"gym_id\": 123,\n      \"reference\": \"111\",\n      \"created_at\": \"2019-07-03T17:44:22Z[UTC]\"\n    },\n    {\n      \"id\": 2,\n      \"name\": \"Super Cycle\",\n      \"slug\": \"super-cycle\",\n      \"description\": \"Our super advanced cycle class\",\n      \"notes\": \"Notes\",\n      \"bookable\": true,\n      \"visible\": true,\n      \"product_id\": 1,\n      \"gym_id\": 123,\n      \"reference\": \"111\",\n      \"created_at\": \"2019-07-03T17:44:22Z[UTC]\",\n      \"categories\": [\n                      {\n                          \"id\": 1,\n                          \"name\": \"Meditation\",\n                          \"locale\": \"de\"\n                      }\n                  ]\n    }\n  ]\n}\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "Get class",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id?show-deleted=false",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id"
+                  ],
+                  "query": [
+                    {
+                      "key": "show-deleted",
+                      "value": "false"
+                    }
+                  ]
+                },
+                "description": "Example of how to get a specific class resource.\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Content-Type | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when creating a Class.  <br> |\n\nQuery String Parameters\n\n| **Field** | **Description** |\n| --- | --- |\n| show-deleted (Optional) | true Shows the deleted class. false {default} Does not show the deleted class |\n\n*`show-deleted=true` Will show the results for both Class_ids that have been deleted and that are non-deleted. `show-deleted=false` will only show non-deleted Class_ids\n\nResponse\n\n``` json\n{\n  \"id\": 1,\n  \"name\": \"Judo\",\n  \"slug\": \"judo-class-with-lasers\",\n  \"description\": \"Description for judo classes.\",\n  \"notes\": \"Some pretty notes here.\",\n  \"bookable\": true,\n  \"visible\": true,\n  \"product_id\": 1,\n  \"gym_id\": 1,\n  \"reference\": \"111\",\n  \"created_at\": \"2019-07-03T17:44:22Z[UTC]\",\n  \"categories\": [\n                  {\n                      \"id\": 1,\n                      \"name\": \"Meditation\",\n                      \"locale\": \"de\"\n                  }\n              ],\n}\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "Update class",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n \"name\": \"Super Cycle\",\n \"description\": \"Our standard cycle classes\",\n \"notes\": \"Notes of our standard cycle classes\",\n \"bookable\": true,\n \"visible\": true,\n \"reference\": \"111\",\n \"product_id\": 1,\n \"categories\": [1,2]\n}"
+                },
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    ""
+                  ]
+                },
+                "description": "Example of how to update a class.\n\nRequest\n\n``` json\n{\n  \"name\": \"Super Cycle\",\n  \"description\": \"Our standard cycle classes\",\n  \"notes\": \"Notes of our standard cycle classes\",\n  \"bookable\": true,\n  \"visible\": true,\n  \"reference\": \"111\",\n  \"product_id\": 1,\n  \"categories\": [\n    1,\n    2\n  ]\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| name | It's the human-readable name of the class. Max of 255 characters. | String | True |\n| description | It's the human-readable description of the class. | String | True |\n| notes | These are the human-readable notes that you can add to the class details. | String | False |\n| bookable | It indicates if the class can be reserved. Values: True or False. | Boolean | True |\n| visible | It indicates if the class is visible at Gympass app and website. Set this field to False if you want to hide the class for a while. If this is set to False, all related slots won’t be shown. Values: True or False. | Boolean | True |\n| product_id | Gym product identifier. Could be found listing all available gym products. | Int | True |\n| reference | It's a field used by the partner to link a class between Gympass Booking API and its integrated system. | String | False |\n| categories | Array of IDs chosen from a list of categories provided by Gympass that specifies what kind of activity that class is about. (e.g. Yoga, Functional, Pilates...). | List - Int  <br>  <br>  <br>  <br>  <br>  <br> | False |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Content-Type | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n\nResponse\n\n``` json\n204 - NO CONTENT\n\n```"
+              },
+              "response": []
+            }
+          ],
+          "description": "A **class** represents one of the gym’s classes, like \"weightlifting\" or \"yoga\". To show the class on the Gympass app and website, you need to create a slot that combines the class with a specific date and time it will occur. See slots session to see how to register a slot."
+        },
+        {
+          "name": "Slots",
+          "item": [
+            {
+              "name": "Create slots",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"occur_date\": \"2022-09-29T22:00:50.000Z\",\n    \"status\": 1,\n    \"room\": \"Virtual test\",\n    \"length_in_minutes\": 60,\n    \"total_capacity\": 15,\n    \"total_booked\": 5,\n    \"product_id\": 100003,\n    \"booking_window\": {\n        \"opens_at\": \"2022-09-29T09:22:50.000Z\",\n        \"closes_at\": \"2022-09-29T21:00:00.000Z\"\n    },\n    \"cancellable_until\": \"2022-09-29T18:05:00.000Z\",\n    \"instructors\": [\n        {\n            \"name\": \"Virtual test\",\n            \"substitute\": true\n        }\n    ],\n    \"rate\": 4.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/slots",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    "slots"
+                  ]
+                },
+                "description": "Example of how to create a slot on a given class.\n\nRequest\n\n``` json\n{\n    \"occur_date\": \"2022-09-29T22:00:50.000Z\",\n    \"status\": 1,\n    \"room\": \"Virtual test\",\n    \"length_in_minutes\": 60,\n    \"total_capacity\": 15,\n    \"total_booked\": 5,\n    \"product_id\": 100003,\n    \"booking_window\": {\n        \"opens_at\": \"2022-09-29T09:22:50.000Z\",\n        \"closes_at\": \"2022-09-29T21:00:00.000Z\"\n    },\n    \"cancellable_until\": \"2022-09-29T18:05:00.000Z\",\n    \"instructors\": [\n        {\n            \"name\": \"Virtual test\",\n            \"substitute\": true\n        }\n    ],\n    \"rate\": 4.0\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| occur_date | The class slot time should be entered based on the location of the gym. Ex: 2019-07-30T10:00:00-05:00 will create a class on July 30th 10AM for a gym located in the East Coast timezone, UTC -5. | Date | True |\n| room | It's the human-readable room name at the gym. Max of 200 characters. | Int | False |\n| status | It’s the slot status. The default value is 1. Values: inactive = 0 or active = 1. | Int | False |\n| length_in_minutes | It's the class duration in minutes. Max length duration is 200. | Int | True |\n| total_capacity | It's the total capacity of users on a given class slot. For example, if you just have 10 bikes, you can set it to 10. Max total capacity is 32000. | Int | True |\n| total_booked | It's the total amount of bookings on a given class slot. Note that every time a class slot is booked through Gympass app and website or not, the best practice is that you update this information using this endpoint. This way we can always show properly the slots that you already have available, providing the best experience to the users. | Int | True |\n| product_id | Gym product identifier. Could be found listing all available gym products. | Int | True |\n| cancellable_until | The deadline used to control the early cancellation for the booking (without penalty). It should be entered based on the location of the gym. After that, it will be considered a late cancel. Ex: 2019-07-30T15:00:00-05:00. | Date | False |\n| rate | The max rate is 5.0. | Decimal  <br>  <br>  <br>  <br>  <br>  <br> | False |\n| booking_window | Booking window represents the date and time that a user can book a slot. If the user is outside of this range of dates and times they can’t book this slot. The booking window is composed of the \"opens_at\" and \"closes_at\" attributes explained below. | \\- | \\- |\n| booking_window.opens_at | The opening time to book a class slot. It should be entered based on the location of the gym. Ex: 2019-07-20T13:00:00-05:00. If none is informed, the slot will be available just after creation. | Date | False |\n| booking_window.closes_at | The limit time to book a class slot. It should be entered based on the location of the gym. Ex: 2019-07-29T21:00:00-05:00. If none is informed the slot will be considered closed to be booked at occur_date | Date | False |\n| instructors | You can set none or multiple instructors for a class slot. This represents a list of the instructors, and for each one you can send the instructor's \"name\" and whether they are a \"substitute\" or not, as explained below. | List | False |\n| instructors.name | The name of the instructor. Max of 100 characters. | String | True |\n| instructors.substitute | Indicates if it’s a substitute instructor. Values: True or False. | Boolean | True |\n| virtual | Indicates if the class slots is virtual or presential. | Boolean | False |\n| virtual_class_url | If this is a virtual class, you can put here the url that the user will need to use to access the class virtually. | String | False |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | aplication/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n\nResponse\n\n``` json\n{\n    \"metadata\": {\n        \"total\": 1,\n        \"errors\": 0\n    },\n    \"results\": [\n        {\n            \"id\": 9325,\n            \"class_id\": 8268,\n            \"occur_date\": \"2022-09-29T23:00:50Z\",\n            \"status\": 1,\n            \"room\": \"Virtual teste\",\n            \"length_in_minutes\": 60,\n            \"total_capacity\": 15,\n            \"total_booked\": 5,\n            \"product_id\": 100003,\n            \"booking_window\": {\n                \"opens_at\": \"2022-09-29T10:22:50Z\",\n                \"closes_at\": \"2022-09-29T22:00:00Z\"\n            },\n            \"cancellable_until\": \"2022-09-29T16:02:00Z\",\n            \"instructors\": [\n                {\n                    \"name\": \"Virtual teste\",\n                    \"substitute\": true\n                }\n            ],\n            \"virtual\": false\n        }\n    ]\n}\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "Get slot",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/slots/slot_id",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    "slots",
+                    "slot_id"
+                  ]
+                },
+                "description": "Example of how to get a specific slot resource.\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | aplication/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n| slot_id | The identifier of the slot at Gympass. Returned when create a Slot.  <br> |\n\nResponse\n\n``` json\n{\n  \"id\": 1,\n  \"class_id\": 1,\n  \"occur_date\": \"2019-07-09T10:00:00-03:00\",\n  \"status\": 1,\n  \"room\": \"Room 1\",\n  \"length_in_minutes\": 60,\n  \"total_capacity\": 15,\n  \"total_booked\": 5,\n  \"product_id\": 1,\n  \"booking_window\": {\n    \"opens_at\": \"2019-07-08T00:00:00-03:00\",\n    \"closes_at\": \"2019-07-09T09:00:00-03:00\"\n  },\n  \"cancellable_until\": \"2019-07-09T09:08:00-03:00\",\n  \"instructors\": [\n    {\n      \"name\": \"Axel\",\n      \"substitute\": false\n    },\n    {\n      \"name\": \"Blaze\",\n      \"substitute\": true\n    }\n  ],\n  \"rate\": 4.5,\n  \"virtual\": true,\n  \"virtual_class_url\": \"http://your_url.com\"\n}\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "List slots",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/slots?from=2019-09-09T00:00:00%2B03:00&to=2019-09-09T23:59:59%2B03:00",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    "slots"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2019-09-09T00:00:00%2B03:00"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2019-09-09T23:59:59%2B03:00"
+                    }
+                  ]
+                },
+                "description": "Example of how to get a list of slots of a given class in a given range of timezoned dates. If no form/to is informed, we will return all slots on that day.\n\nParams\n\n| **Field** | **Description** |\n| --- | --- |\n| from | 2019-09-09T00:00:00+03:00  <br>A timezoned date/time to start find slots. It should be entered based on the location of the gym. |\n| to | 2019-09-09T00:00:00+03:00  <br>A timezoned date/time to start find slots. It should be entered based on the location of the gym. |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | aplication/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n\nResponse\n\n``` json\n{\n  \"metadata\": {\n      \"page\": 1,\n      \"page_size\": 1000,\n      \"total_elements\": 1,\n      \"total\": 1,\n      \"errors\": 0\n  },\n  \"results\": [\n    {\n      \"id\": 10849748,\n      \"class_id\": 627457,\n      \"occur_date\": \"2021-03-09T07:00:00Z[UTC]\",\n      \"status\": 1,\n      \"room\": \"Room 1\",\n      \"length_in_minutes\": 60,\n      \"total_capacity\": 15,\n      \"total_booked\": 5,\n      \"product_id\": 478142,\n      \"booking_window\": {\n      \"opens_at\": \"2021-03-09T06:30:00Z[UTC]\",\n      \"closes_at\": \"2021-03-09T07:00:00Z[UTC]\"\n    },\n      \"cancellable_until\": \"2021-03-09T07:00:00Z[UTC]\",\n      \"instructors\": [\n        {\n          \"name\": \"GYMPASS TEST\",\n          \"substitute\": false\n        }\n      ],\n      \"rating\": 4.5,\n      \"virtual\": false\n    }\n  ]\n}\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "Delete slot",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/slots/slot_id",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    "slots",
+                    "slot_id"
+                  ]
+                },
+                "description": "Example of how to delete a slot forever. All bookings already done in this slot will be canceled automatically.\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | aplication/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n| slot_id | The identifier of the Slot at Gympass. Returned when create a Slot.  <br> |\n\nResponse\n\n``` json\n204 - NO CONTENT\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "Patch slot",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"total_capacity\": 15,\n  \"total_booked\": 5,\n  \"virtual_class_url\": \"http://your_url.com\"\n}"
+                },
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/slots/slot_id",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    "slots",
+                    "slot_id"
+                  ]
+                },
+                "description": "Example of how to update partial info of the slot. For now, it is just possible to update *total_booked* and/or *total_capacity*. We recommend as good practice inform at least one of these fields. If you need to update other slot's information, please use PUT Update slot.\n\nRequest\n\n``` json\n{\n  \"total_capacity\": 15,\n  \"total_booked\": 5,\n  \"virtual_class_url\": \"http://your_url.com\"\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| total_capacity | It's the total capacity of users on a given class slot. For example, if you just have 10 bikes, you can set it to 10. Max total capacity is 32000. | Int | True, if total_booked not sent  <br> |\n| total_booked | It's the total amount of bookings on a given class slot. Note that every time a class slot is booked, through Gympass app and website or not, the best practice is that you update this information using this endpoint. This way we can properly always show the slots that you already have available, providing the best experience to the users. | Int | True, if total_capacity not sent  <br> |\n| virtual_class_url | If this is a virtual class, you can put here the url that the user will need to use to access the class virtually. | String | False |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | aplication/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n| slot_id | The identifier of the Slot at Gympass. Returned when create a Slot.  <br> |\n\nResponse\n\n``` json\n204 - NO CONTENT\n\n```"
+              },
+              "response": []
+            },
+            {
+              "name": "Update slot",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"occur_date\": \"2019-07-09T10:00:00-03:00\",\n  \"room\": \"Room 1\",\n  \"status\": 1,\n  \"length_in_minutes\": 60,\n  \"total_capacity\": 15,\n  \"total_booked\": 7,\n  \"product_id\": 1,\n  \"booking_window\": {\n    \"opens_at\": \"2019-07-08T00:00:00-03:00\",\n    \"closes_at\": \"2019-07-09T09:00:00-03:00\"\n  },\n  \"instructors\": [\n    {\n      \"name\": \"Axel\",\n      \"substitute\": false\n    },\n    {\n      \"name\": \"John\",\n      \"substitute\": true\n    }\n  ],\n  \"cancellable_until\": \"2019-07-09T09:00:00-03:00\",\n  \"rate\": 4.5,\n  \"virtual\": true,\n  \"virtual_class_url\": \"http://your_url.com\"\n}"
+                },
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/classes/class_id/slots/slot_id",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "classes",
+                    "class_id",
+                    "slots",
+                    "slot_id"
+                  ]
+                },
+                "description": "Example of how to update all info of the slot.\n\nRequest\n\n``` json\n{\n  \"occur_date\": \"2019-07-09T10:00:00-03:00\",\n  \"room\": \"Room 1\",\n  \"status\": 1,\n  \"length_in_minutes\": 60,\n  \"total_capacity\": 15,\n  \"total_booked\": 7,\n  \"product_id\": 1,\n  \"booking_window\": {\n    \"opens_at\": \"2019-07-08T00:00:00-03:00\",\n    \"closes_at\": \"2019-07-09T09:00:00-03:00\"\n  },\n  \"instructors\": [\n    {\n      \"name\": \"Axel\",\n      \"substitute\": false\n    },\n    {\n      \"name\": \"John\",\n      \"substitute\": true\n    }\n  ],\n  \"cancellable_until\": \"2019-07-09T09:00:00-03:00\",\n  \"rate\": 4.5,\n  \"virtual\": true,\n  \"virtual_class_url\": \"http://your_url.com\"\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| occur_date | The class slot time should be entered based on the location of the gym. Ex: 2019-07-30T10:00:00-05:00 will create a class on July 30th 10AM for a gym located in the East Coast timezone, UTC -5. | Date | True |\n| room | It's the human-readable room name at the gym. Max of 200 characters. | Int | False |\n| status | It’s the slot status. The default value is 1. Values: inactive = 0 or active = 1. | Int | False |\n| length_in_minutes | It's the class duration in minutes. Max length duration is 200. | Int | True |\n| total_capacity | It's the total capacity of users on a given class slot. For example, if you just have 10 bikes, you can set it to 10. Max total capacity is 32000. | Int | True |\n| total_booked | It's the total amount of bookings on a given class slot. Note that every time a class slot is booked through Gympass app and website or not, the best practice is that you update this information using this endpoint. This way we can always show properly the slots that you already have available, providing the best experience to the users. | Int | True |\n| product_id | Gym product identifier. Could be found listing all available gym products. | Int | True |\n| cancellable_until | The deadline used to control the early cancellation for the booking (without penalty). It should be entered based on the location of the gym. After that, it will be considered a late cancel. Ex: 2019-07-30T15:00:00-05:00. | Date | False |\n| rate | The max rate is 5.0. | Decimal  <br>  <br>  <br>  <br>  <br>  <br> | False |\n| booking_window | Booking window represents the date and time that a user can book a slot. If the user is outside of this range of dates and times they can’t book this slot. The booking window is composed of the \"opens_at\" and \"closes_at\" attributes explained below. | \\- | \\- |\n| booking_window.opens_at | The opening time to book a class slot. It should be entered based on the location of the gym. Ex: 2019-07-20T13:00:00-05:00. If none is informed, the slot will be available just after creation. | Date | False |\n| booking_window.closes_at | The limit time to book a class slot. It should be entered based on the location of the gym. Ex: 2019-07-29T21:00:00-05:00. If none is informed the slot will be considered closed to be booked at occur_date | Date | False |\n| instructors | You can set none or multiple instructors for a class slot. This represents a list of the instructors, and for each one you can send the instructor's \"name\" and whether they are a \"substitute\" or not, as explained below. | List | False |\n| instructors.name | The name of the instructor. Max of 100 characters. | String | True |\n| instructors.substitute | Indicates if it’s a substitute instructor. Values: True or False. | Boolean | True |\n| virtual | Indicates if the class slots is virtual or presential. | Boolean | False |\n| virtual_class_url | If this is a virtual class, you can put here the url that the user will need to use to access the class virtually. | String | False |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | aplication/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class.  <br> |\n| slot_id | The identifier of the Slot at Gympass. Returned when create a Slot.  <br> |\n\nResponse\n\n``` json\n{\n  \"metadata\": {\n    \"total\": 1,\n    \"errors\": 0\n  },\n  \"results\": [\n    {\n      \"id\": 1,\n      \"class_id\": 1,\n      \"occur_date\": \"2019-07-09T10:00:00-03:00\",\n      \"status\": 1,\n      \"room\": \"Room 1\",\n      \"length_in_minutes\": 60,\n      \"total_capacity\": 15,\n      \"total_booked\": 7,\n      \"product_id\": 1,\n      \"booking_window\": {\n        \"opens_at\": \"2019-07-08T00:00:00-03:00\",\n        \"closes_at\": \"2019-07-09T09:00:00-03:00\"\n      },\n      \"cancellable_until\": \"2019-07-09T09:08:00-03:00\",\n      \"instructors\": [\n        {\n          \"name\": \"Axel\",\n          \"substitute\": false\n        },\n        {\n          \"name\": \"John\",\n          \"substitute\": true\n        }\n      ],\n      \"rate\": 4.5,\n      \"virtual\": true\n    }\n  ]\n}\n\n```"
+              },
+              "response": []
+            }
+          ],
+          "description": "A slot represents a class with specific date and time. For example, you can have a class called Yoga with a slot on Sunday at 9 AM and another slot on Monday at 8 AM.\n\nA slot is always related to a class that was previously registered. See class session to find out how to register a class."
+        },
+        {
+          "name": "Bookings",
+          "item": [
+            {
+              "name": "Validate Booking",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"class_id\": 8268,\n  \"status\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{partners-testing-helper-booking-api}}/gyms/gym_id/bookings/booking_number",
+                  "host": [
+                    "{{partners-testing-helper-booking-api}}"
+                  ],
+                  "path": [
+                    "gyms",
+                    "gym_id",
+                    "bookings",
+                    "booking_number"
+                  ]
+                },
+                "description": "Example of how to update the status of a given booking.\n\nWhen calling the PATCH update you must pass through either a 2 (Reserved Booking), a 3 (Rejected Booking) or 5 (Cancelled by the Gym).\n\nRequest\n\n``` json\n{\n  \"class_id\": 8268,\n  \"status\": 2\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| class_id | The class id related to that booking. | Int | True |\n| status | If the gym is accepting or rejecting the booking. Values: Reserved = 2 or Rejected = 3. | Int | True |\n| reason | The reason is used commonly when the booking is rejected. | String | False |\n| virtual_class_url | If this is a virtual class, you can put here the URL that the user will need to use to access the class virtually. | String | False |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| booking_number | The booking identifier at Gympass. Returned when creating a Booking. |\n\nResponse\n\n``` json\n204 - 0K - NO CONTENT\n\n```"
+              },
+              "response": []
+            }
+          ],
+          "description": "**IMPORTANT: Booking requests need to be confirmed under 15 minutes, otherwise they will be automatically rejected.**"
+        }
+      ],
+      "description": "Endpoints to perform booking operations in order to test the integration, such as class creation and slot creation (needed to test the booking flow)."
+    },
+    {
+      "name": "Partner Products",
+      "item": [
+        {
+          "name": "List gym products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{partners-testing-helper-setup-api}}/gyms/:gym_id/products",
+              "host": [
+                "{{partners-testing-helper-setup-api}}"
+              ],
+              "path": [
+                "gyms",
+                ":gym_id",
+                "products"
+              ],
+              "variable": [
+                {
+                  "key": "gym_id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Example of how to list all products of a particular gym.\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | application/json |\n| Content-Type | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n\nResponse\n\n``` json\n{\n   \"gym_id\": 100001,\n   \"products\": [\n       {\n           \"product_id\": 100003,\n           \"name\": \"Virtual Class\",\n           \"updated_at\": \"2022-09-29T14:11:02Z\"\n       },\n       {\n           \"product_id\": 100002,\n           \"name\": \"Outdoor Training\",\n           \"updated_at\": \"2022-09-29T14:11:02Z\"\n       }\n   ]\n}\n\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "A Product determines what Gyms a user can access on a Gympass plan. In addition, the product also represents an activity that the user can perform, so its data commonly required to provide on some requests, such as for creating a class.\n\nFor this purpose, we provide an API that allows you to retrieve all Products that are associated with a Gym, so you can use the correct Product IDs on your integration setup."
+    },
+    {
+      "name": "Webhook Events",
+      "item": [
+        {
+          "name": "Check-in Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Gympass-Signature",
+                "value": "",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": " {\n \"event_type\": \"checkin\",\n \"event_data\": {\n \"user\": {\n \"unique_token\": \"0123456789012\",\n \"first_name\": \"Firstname\",\n \"last_name\": \"Lastname\",\n \"email\": \"user@email.com\",\n \"phone_number\": \"447889123456\"\n },\n \"location\": {\n \"lat\": 51.4937541,\n \"lon\": 0.0633661\n },\n \"gym\": {\n \"id\": 123456,\n \"title\":\" Name of the Gym\",\n \"product\": {\n \"id\": 1\n \"description\":\"Description of product\"\n }\n },\n \"timestamp\": 1666629613\n }\n }"
+            },
+            "url": {
+              "raw": "https://your-webhook-url-here.com",
+              "protocol": "https",
+              "host": [
+                "your-webhook-url-here",
+                "com"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Booking Request Event",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const hash = CryptoJS.HmacSHA1(request.data, 'office_eagle_consider').toString(CryptoJS.digest).toUpperCase();",
+                  "console.log(hash);",
+                  "pm.globals.set(\"hash\", hash);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-gympass-signature",
+                "value": "",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n \"event_type\": \"booking-requested\",\n \"event_data\": {\n \"user\": {\n \"unique_token\": \"123456789012\",\n \"name\": \"Firstname Lastname\",\n \"email\": \"user@email.com\"\n },\n \"slot\": {\n \"id\": 01234567,\n \"gym_id\": 012345,\n \"class_id\": 654321,\n \"booking_number\": \"BK_A1B2C3\"\n },\n \"timestamp\": 1560983373378,\n \"event_id\": \"7e8cbb0f-9681-4d3e-8c36-2b3dd6ecbadb\"\n }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://your-webhook-url-here.com",
+              "protocol": "https",
+              "host": [
+                "your-webhook-url-here",
+                "com"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Booking Cancellation Event Copy",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const hash = CryptoJS.HmacSHA1(request.data, 'office_eagle_consider').toString(CryptoJS.digest).toUpperCase();",
+                  "console.log(hash);",
+                  "pm.globals.set(\"hash\", hash);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-gympass-signature",
+                "value": "",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n \"event_type\": \"booking-canceled\",\n \"event_data\": {\n \"user\": {\n \"unique_token\": \"123456789012\"\n },\n \"slot\": {\n \"id\": 01234567,\n \"gym_id\": 012345,\n \"class_id\": 654321,\n \"booking_number\": \"BK_A1B2C3\"\n },\n \"timestamp\": 1560983373378,\n \"event_id\": \"7e8cab0f-9981-4d3e-8c36-2b3dd6ecbadb\"\n }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://your-webhook-url-here.com",
+              "protocol": "https",
+              "host": [
+                "your-webhook-url-here",
+                "com"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Booking Late Cancellation Event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n \"event_type\": \"booking-late-canceled\",\n \"event_data\": {\n \"user\": {\n \"unique_token\": \"123456789012\"\n },\n \"slot\": {\n \"id\": 01234567,\n \"gym_id\": 012345,\n \"class_id\": 654321,\n \"booking_number\": \"BK_A1B2C3\"\n },\n \"timestamp\": 1560983373378,\n \"event_id\": \"7e8cab0f-9981-4d3e-8c36-2b3dd6ecbadb\"\n }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://your-webhook-url-here.com",
+              "protocol": "https",
+              "host": [
+                "your-webhook-url-here",
+                "com"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "The Gympass webhooks will notify you when specific events are triggered. This notification is an HTTP POST request to your registered URL.\n\nThis document describes both the events that are triggered along with the data they send and the API resources available for the webhooks."
+    },
+    {
+      "name": "Webhook Simulations",
+      "item": [
+        {
+          "name": "Create Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gympass_user_id\": \"1000000000003\",\n  \"slot_id\": 9325,\n  \"class_id\": 8268\n}"
+            },
+            "url": {
+              "raw": "{{partners-testing-helper-api}}/gyms/gym_id/simulate/bookings",
+              "host": [
+                "{{partners-testing-helper-api}}"
+              ],
+              "path": [
+                "gyms",
+                "gym_id",
+                "simulate",
+                "bookings"
+              ]
+            },
+            "description": "Example of how to simulate a booking for a specific gym.\n\nRequest\n\n``` json\n{\n  \"gympass_user_id\": \"1000000000002\",\n  \"slot_id\": 9325,\n  \"class_id\": 8268\n}\n\n```\n\nRequest Params\n\n| **Field** | **Description** |\n| --- | --- |\n| gympass_user_id | 13 digits ID wich identifies the user that will perform the booking. |\n| slot_id | The identifier of the slot at Gympass. Returned when create a Slot. |\n| class_id | The identifier of the class at Gympass. Returned when create a Class. |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | application/json |\n| Content-Type | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n\nResponse\n\n``` json\n{\n   \"event_data\": {\n       \"user\": {\n           \"unique_token\": \"1000000000002\",\n           \"name\": \"Thomas Patrick\",\n           \"email\": \"thomas@mail.com\",\n           \"phone_number\": \"+19415693005\"\n       },\n       \"slot\": {\n           \"id\": 9325,\n           \"gym_id\": 100001,\n           \"class_id\": 8268,\n           \"booking_number\": \"BK_HEQYZMK\"\n       },\n       \"timestamp\": 1664461204015,\n       \"event_id\": \"45b4b8a4-f2f3-4b33-adf0-504c33f27642\"\n   },\n   \"event_type\": \"booking-requested\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{partners-testing-helper-api}}/gyms/gym_id/simulate/bookings/booking_number/cancel",
+              "host": [
+                "{{partners-testing-helper-api}}"
+              ],
+              "path": [
+                "gyms",
+                "gym_id",
+                "simulate",
+                "bookings",
+                "booking_number",
+                "cancel"
+              ]
+            },
+            "description": "Example of how to simulate a booking cancellation/late cancel.\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| Accept | application/json |\n| Content-Type | application/json |\n| Authorization | Bearer {{api_key}} - If you do not have this api key, ask it to Gympass contact. |\n\nPath Variables\n\n| **Field** | **Description** |\n| --- | --- |\n| gym_id | The identifier of the gym at Gympass. Provided by Gympass. |\n| booking_reference_number | Booking identifier. Returned when create a booking. |\n\nCancel Response\n\n``` json\n{\n   \"event_data\": {\n       \"user\": {\n           \"unique_token\": \"1000000000003\",\n           \"name\": \"Patty Cork\",\n           \"email\": \"patty@mail.com\",\n           \"phone_number\": \"+19403811663\"\n       },\n       \"slot\": {\n           \"id\": 9324,\n           \"gym_id\": 100001,\n           \"class_id\": 8268,\n           \"booking_number\": \"BK_VLZNUIJ\"\n       },\n       \"timestamp\": 1664462883131,\n       \"event_id\": \"a42d8911-4447-4df8-8a79-095657c0af26\"\n   },\n   \"event_type\": \"booking-canceled\"\n}\n\n```\n\nLate Cancel Response\n\n``` json\n{\n   \"event_data\": {\n       \"user\": {\n           \"unique_token\": \"1000000000003\",\n           \"name\": \"Patty Cork\",\n           \"email\": \"patty@mail.com\",\n           \"phone_number\": \"+19403811663\"\n       },\n       \"slot\": {\n           \"id\": 9324,\n           \"gym_id\": 100001,\n           \"class_id\": 8268,\n           \"booking_number\": \"BK_VLZNUIJ\"\n       },\n       \"timestamp\": 1664462883131,\n       \"event_id\": \"a42d8911-4447-4df8-8a79-095657c0af26\"\n   },\n   \"event_type\": \"booking-late-canceled\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Checkin-booking-occurred",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwNTg5NzQ2MC01N2FkLTRjMmItYWViMS0wODgxOTRjNmM5ZTIiLCJpc3MiOiJwYXJ0bmVycy10ZXN0aW5nLWlhbS51cy5zdGcuZ3ltcGFzcy5jbG91ZCIsImlhdCI6MTcyNDE0NjY4OCwianRpIjoiMDU4OTc0NjAtNTdhZC00YzJiLWFlYjEtMDg4MTk0YzZjOWUyIn0.HWDWbMnLCoqkV9bYoYKbi-Tiy34qXTLvacKHsml8fm0",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwNTg5NzQ2MC01N2FkLTRjMmItYWViMS0wODgxOTRjNmM5ZTIiLCJpc3MiOiJwYXJ0bmVycy10ZXN0aW5nLWlhbS51cy5zdGcuZ3ltcGFzcy5jbG91ZCIsImlhdCI6MTcyNDE0NjY4OCwianRpIjoiMDU4OTc0NjAtNTdhZC00YzJiLWFlYjEtMDg4MTk0YzZjOWUyIn0.HWDWbMnLCoqkV9bYoYKbi-Tiy34qXTLvacKHsml8fm0",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"gympass_user_id\":\"1000000000003\",\n\"product_id\":257,\n\"booking_number\":\"BK_JOMZ4JL\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{partners-testing-helper-api}}/gyms/:gym_id/simulate/checkins",
+              "host": [
+                "{{partners-testing-helper-api}}"
+              ],
+              "path": [
+                "gyms",
+                ":gym_id",
+                "simulate",
+                "checkins"
+              ],
+              "variable": [
+                {
+                  "key": "gym_id",
+                  "value": "129"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check-in",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{  \"gympass_user_id\": \"1000000000003\",  \"product_id\": 100003,  \"booking_number\": \"BK_VLZNUIJ\"}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{partners-testing-helper-api}}/gyms/:gym_id/simulate/checkins",
+              "host": [
+                "{{partners-testing-helper-api}}"
+              ],
+              "path": [
+                "gyms",
+                ":gym_id",
+                "simulate",
+                "checkins"
+              ],
+              "variable": [
+                {
+                  "key": "gym_id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{partners-testing-helper-api}}/gyms/:gym_id/simulate/bookings/:booking_number/cancel",
+              "host": [
+                "{{partners-testing-helper-api}}"
+              ],
+              "path": [
+                "gyms",
+                ":gym_id",
+                "simulate",
+                "bookings",
+                ":booking_number",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "gym_id",
+                  "value": ""
+                },
+                {
+                  "key": "booking_number",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints to perform integration simulations."
+    },
+    {
+      "name": "Access Control API",
+      "item": [
+        {
+          "name": "Validate Checkin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwNTg5NzQ2MC01N2FkLTRjMmItYWViMS0wODgxOTRjNmM5ZTIiLCJpc3MiOiJwYXJ0bmVycy10ZXN0aW5nLWlhbS51cy5zdGcuZ3ltcGFzcy5jbG91ZCIsImlhdCI6MTcyNDE0NjY4OCwianRpIjoiMDU4OTc0NjAtNTdhZC00YzJiLWFlYjEtMDg4MTk0YzZjOWUyIn0.HWDWbMnLCoqkV9bYoYKbi-Tiy34qXTLvacKHsml8fm0",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "X-Gym-Id",
+                "value": "129",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"gympass_id\":\"1000000000003\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{partners-testing-helper-gym-access-api}}/validate",
+              "host": [
+                "{{partners-testing-helper-gym-access-api}}"
+              ],
+              "path": [
+                "validate"
+              ]
+            },
+            "description": "Example of how to validate the entry of users at a gym and consequently generate transactions to pay them later.\n\nRequest\n\n``` json\n{\"gympass_id\":\"1000000000001\"}\n\n```\n\nRequest Params\n\n| **Field** | **Description** | **Type** | **Required** |\n| --- | --- | --- | --- |\n| gympass_id | This is the user’s gympass_id with 13 digits, and the \"value/option\" will require previous check-in at the gym. | String | True |\n\nHeaders\n\n| **Field** | **Description** |\n| --- | --- |\n| X-Gym-Id | **Required field**  <br>This is the ID of the gym you’re setting up. Choose it according to the list of gyms you manage. |\n| Content-Type | **Required field**  <br>The Content-Type entity-header is used to indicate the media type of the resource. Use always application/json |\n| Authorization | **Required field**  <br>The key is a string that is generated for you and identifies you and the gyms you are allowed to validate products for. To request yours please contact Gympass Technical Sales. |\n\nResponse\n\n``` json\n{\n    \"metadata\": {\n        \"total\": 1,\n        \"errors\": 0\n    },\n    \"results\": {\n        \"user\": {\n            \"gympass_id\": \"1000000000001\"\n        },\n        \"gym\": {\n            \"id\": 1,\n            \"product\": {\n                \"id\": 2,\n                \"description\": \"Produto Teste 2\"\n            }\n        },\n        \"validated_at\": \"2022-09-20T14:24:10Z\"\n    }\n}\n\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints to perform util operations in order to test the integration, such as class creation and slot creation (needed to test the booking flow)."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "partners-testing-helper-api",
+      "value": "https://apitesting.partners.gympass.com/helper/v1",
+      "type": "string"
+    },
+    {
+      "key": "partners-testing-helper-booking-api",
+      "value": "https://apitesting.partners.gympass.com/booking/v1",
+      "type": "string"
+    },
+    {
+      "key": "partners-testing-helper-gym-access-api",
+      "value": "https://apitesting.partners.gympass.com/access/v1",
+      "type": "string"
+    },
+    {
+      "key": "partners-testing-helper-setup-api",
+      "value": "https://apitesting.partners.gympass.com/setup/v1",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": ""
+    }
+  ]
+}

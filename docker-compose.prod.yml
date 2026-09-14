@@ -1,0 +1,65 @@
+# Overrides de produção — usar sempre junto com o docker-compose.yml base:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# O que muda em relação ao dev:
+# - backend/frontend deixam de ser buildados localmente — usam as imagens já
+#   publicadas no GitHub Container Registry pelo workflow
+#   .github/workflows/build-images.yml.
+# - Esta VPS já roda outros projetos com um Caddy próprio como único ponto de
+#   entrada público (container `caddy-proxy`, do projeto `assembleia`, dono
+#   das portas 80/443). Por isso o omniclub NÃO sobe um Caddy próprio aqui —
+#   subiria uma segunda instância disputando as mesmas portas.
+# - Em vez de entrar na rede interna do assembleia (o que exporia os dois
+#   projetos um pro outro), o frontend entra numa rede docker exclusiva pra
+#   isso — `caddy_edge`, já criada nesta VPS pelo deploy do clubedotenis —
+#   onde só entra mais o container `caddy-proxy` do assembleia. Nenhum outro
+#   serviço do assembleia/clubedotenis fica visível pro omniclub, e
+#   vice-versa. O roteamento de omniclub.run é um bloco a mais no Caddyfile
+#   do assembleia (ver Caddyfile deste repo e o DEPLOY.md).
+# - O backend NÃO entra na rede caddy_edge: o nginx do próprio container do
+#   frontend já proxya /api/ para o serviço `backend` internamente (ver
+#   frontend/nginx.conf), então o Caddy compartilhado só precisa enxergar o
+#   frontend. O backend continua inalcançável de fora da rede docker deste
+#   projeto.
+# - Nenhum serviço deste projeto fica com porta publicada diretamente no
+#   host — quem expõe 80/443 é o `caddy-proxy` do outro projeto.
+# - frontend ganha `container_name` explícito (prefixado com omniclub-)
+#   porque o `caddy-proxy` fica ligado às duas redes ao mesmo tempo (a rede
+#   interna do assembleia + caddy_edge); sem o prefixo, um serviço genérico
+#   chamado "frontend" existiria nas duas e a resolução via DNS interno do
+#   Docker ficaria ambígua. O nome só precisa ser único na rede caddy_edge.
+# - Mongo deixa de ser o container local `mongo` do docker-compose.yml base
+#   (esse continua existindo só para o dev local) — em produção o backend se
+#   conecta direto no MongoDB Atlas via MONGODB_URI. Por isso o `depends_on`
+#   do mongo é removido aqui, e o serviço `mongo` do arquivo base nem deve
+#   ser subido nesta VPS (ver DEPLOY.md seção 6 — `up`/`pull` listam
+#   `backend frontend` explicitamente, sem o `mongo`).
+services:
+  backend:
+    image: ${GHCR_NAMESPACE:-ghcr.io/deangellissantiago}/omniclub-backend:latest
+    build: !reset null
+    ports: !reset []
+    depends_on: !reset []
+    environment:
+      MongoDb__ConnectionString: ${MONGODB_URI:?defina MONGODB_URI no .env da VPS com a connection string do Atlas}
+      Cors__AllowedOrigins__0: ${FRONTEND_URL:?defina FRONTEND_URL no .env da VPS, ex. https://omniclub.run}
+      Billing__FrontendBaseUrl: ${FRONTEND_URL:?defina FRONTEND_URL no .env da VPS, ex. https://omniclub.run}
+
+  frontend:
+    image: ${GHCR_NAMESPACE:-ghcr.io/deangellissantiago}/omniclub-frontend:latest
+    build: !reset null
+    ports: !reset []
+    container_name: omniclub-frontend
+    networks:
+      - default
+      - caddy_edge
+
+networks:
+  # Rede dedicada só para tráfego de proxy reverso, compartilhada com o
+  # caddy-proxy de outro projeto (hoje o assembleia) — NÃO é a rede interna
+  # dele. Já existe nesta VPS (criada no deploy do clubedotenis); se for a
+  # primeira vez, crie uma única vez antes do primeiro deploy:
+  #   docker network create caddy_edge
+  caddy_edge:
+    external: true

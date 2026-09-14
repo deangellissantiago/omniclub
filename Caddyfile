@@ -1,0 +1,16 @@
+# Este Caddyfile NÃO é montado por nenhum container deste projeto em
+# produção — a VPS já roda um Caddy compartilhado de outro projeto
+# (container `caddy-proxy`, do repo `assembleia`), dono das portas 80/443,
+# e é ele quem precisa ganhar o bloco abaixo. Ver docker-compose.prod.yml
+# (rede `caddy_edge`) e DEPLOY.md para o passo a passo completo.
+#
+# Bloco a copiar para o Caddyfile do caddy-proxy compartilhado (mesmo
+# arquivo que já tem os blocos de votocondominio.com.br e
+# clubedotenis.app/app.clubedotenis.app).
+
+# omniclub — o nginx do próprio container do frontend já proxya /api/ para
+# o serviço `backend` internamente (ver frontend/nginx.conf), então aqui só
+# precisamos apontar para o frontend.
+omniclub.run, www.omniclub.run {
+	reverse_proxy omniclub-frontend:80
+}

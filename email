@@ -1,0 +1,76 @@
+Obrigado Deangellis! Em breve o Lucas compartilhará com vocês o Docusign para assinatura. 
+
+Vou compartilhar com você novamente o passo a passo e credenciais de teste compartilhadas com o Claudius.
+
+    Primeiros Passos
+Explore a Documentação & Postman Collections para entender os contratos de API.
+
+Desenvolva e Teste no seu ambiente local usando as credenciais de Sandbox abaixo. É possível testar todos os eventos utilizando nossa coleção de simulações - https://documenter.getpostman.com/view/14766562/2s9YsGhCsh#79addb0d-6731-452d-a79a-2dffa97b92ff
+
+Envio de credencias de sandbox: Após finalizar os testes, nos envie suas URLs de Webhook e o Secret para validação do header X-Gympass-Signature e do fluxo completo da integração.
+
+Suas Credenciais de Sandbox
+Atenção: Guarde essas credenciais com segurança. Elas servem exclusivamente para o ambiente de testes.
+
+{
+  "gym_id": 609,
+  "api_key": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmMGZkNmE5Ny1lNmZjLTQ4NTctOGQ4OC1iZTQ3OTI2MmIyMTkiLCJpc3MiOiJwYXJ0bmVycy10ZXN0aW5nLWlhbS51cy5zdGcuZ3ltcGFzcy5jbG91ZCIsImlhdCI6MTc4NzA1NzYxNSwianRpIjoiZjBmZDZhOTctZTZmYy00ODU3LThkODgtYmU0NzkyNjJiMjE5In0.QQ3SnNSD1gm_SBqeHYzUYe0yJ0nJP6_tXmTKkipSq7Q"
+}
+Tipos de Integração Disponíveis
+Oferecemos duas APIs complementares. Você pode integrar uma ou ambas, dependendo da necessidade dos seus clientes:
+
+1. Access Control API (Validação de Check-in)
+Caso de Uso: Autorizar a entrada do usuário na academia (liberação de catraca/reconhecimento facial).
+
+Documentação Postman - Access Control API (https://developers.wellhub.com/product/access-control-api/1.0/getting-started)
+
+Coleção de testes em Sandbox - Access Control API (https://documenter.getpostman.com/view/14766562/2s9YsGhCsh#cfb93669-7736-4027-b158-e0d7f8d919da)
+
+Fluxo Esperado:
+
+O usuário faz check-in pelo app Wellhub.
+
+Nosso sistema envia uma notificação via Webhook para o seu sistema (que pode optar por fazer um pré-registro do usuário).
+
+Seu sistema chama o endpoint /validate para verificar se o usuário possui um passe válido para o dia.
+
+Com a resposta positiva, seu sistema libera o acesso físico (catraca, face-id, etc.).
+
+2. Booking API (Reserva de Aulas)
+Caso de uso: Sincronizar grade de aulas, vagas e gerenciar solicitações de agendamento.
+
+Documentação Postman - Booking API
+
+Coleção de testes em Sandbox - Booking API
+
+Fluxo Esperado:
+
+Configuração de Grade: Criação de Categorias (https://developers.gympass.com/product/booking-api/1.0/endpoints#classes) e Aulas/Slots (https://developers.gympass.com/product/booking-api/1.0/endpoints#slots).
+
+Atualização de Vagas: Manter a ocupação atualizada via PATCH Update (https://developers.gympass.com/product/booking-api/1.0/endpoints#patch----update) sempre que houver reservas externas ou internas.
+
+Gestão de Reservas: Receber eventos de reserva via Webhook (booking-requested, booking-canceled, booking-late-canceled) e responder confirmando ou rejeitando a solicitação via PATCH Update (https://developers.wellhub.com/product/booking-api/1.0/endpoints#-patch-----update)
+
+    Requisitos de Segurança & Webhooks
+URL Única: Recomendamos utilizar uma única URL de Webhook para receber todos os eventos (Check-in e Booking).
+
+Assinatura de Segurança: Todas as requisições enviadas por nós contêm o header X-Gympass-Signature. Use o seu Secret para validar a autenticidade dos payloads.
+
+3. Integration Setup API (Automação de Setup de Parceiros)
+Objetivo: Automatizar o processo de vinculação e configuração das academias/parceiros que selecionam o seu sistema, sem necessidade de intervenção manual.
+
+Documentação - Integration Setup API (https://developers.wellhub.com/product/integration-setup-api/1.0/getting-started)
+
+Fluxo Esperado: 
+
+Notificação de Novo Parceiro: Receber o webhook system-integration-requested informando quando uma nova academia seleciona o seu CMS.
+
+Configuração de Webhooks: Gerenciar e associar os endpoints de webhook do parceiro via Endpoints da Setup API (https://developers.wellhub.com/product/integration-setup-api/1.0/endpoints#post---create).
+
+Consulta de Carteira: Listar e auditar todas as academias integradas e associadas ao seu sistema.
+
+Caso vocês optem por utilizar a mesma url de webhook e secret para todas as unidades integradas com vocês, o fluxo acima não precisa ser desenvolvido, basta o parceiro solicitar a integração diretamente no nosso portal do parceiro - https://helpcenter.gympass.com/pt-br/articles/o-que-sao-sistemas-de-gestao-e-como-integrar-o-check-in-e-a-agenda-de-aulas-na-minha-academia-ou-estudio
+
+Qualquer dúvida estou a disposição!
+
+Obrigado, 

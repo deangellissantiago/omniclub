@@ -1,0 +1,12 @@
+backend/src/**/bin/
+backend/src/**/obj/
+backend/tests/**/bin/
+backend/tests/**/obj/
+frontend/e2e/node_modules/
+frontend/e2e/last-run/
+backend/e2e/node_modules/
+backend/e2e/last-run/
+frontend/node_modules/
+frontend/dist/
+.env
+*.user
