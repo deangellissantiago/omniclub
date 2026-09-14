@@ -96,12 +96,17 @@ STRIPE_CURRENCY=brl
 
 FRONTEND_URL=https://omniclub.run
 MONGODB_URI=mongodb+srv://usuario:senha@cluster.mongodb.net/?retryWrites=true&w=majority
+
+SEED_ADMIN_EMAIL=admin@seudominio.com
+SEED_ADMIN_PASSWORD=escolha-uma-senha-forte-aqui
 ```
 
-`FRONTEND_URL` e `MONGODB_URI` são obrigatórios no `docker-compose.prod.yml`
-— sem eles o `docker compose up` recusa subir o `backend` pedindo a
-variável que falta (`FRONTEND_URL` vira `Cors__AllowedOrigins__0` e
-`Billing__FrontendBaseUrl`; `MONGODB_URI` vira `MongoDb__ConnectionString`).
+`FRONTEND_URL`, `MONGODB_URI`, `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD`
+são obrigatórios no `docker-compose.prod.yml` — sem algum deles o
+`docker compose up` recusa subir o `backend` pedindo a variável que falta
+(`FRONTEND_URL` vira `Cors__AllowedOrigins__0`/`Billing__FrontendBaseUrl`;
+`MONGODB_URI` vira `MongoDb__ConnectionString`; os dois últimos viram
+`Seed__AdminEmail`/`Seed__AdminPassword` — ver seção 7).
 
 `MONGODB_URI` é a connection string do cluster no MongoDB Atlas — o nome do
 banco (`checkin_db`) não precisa estar na URI, quem define isso é
@@ -146,16 +151,40 @@ para a versão mais recente publicada.
 Se a seção 3 ainda não foi feita, o `up -d` recusa subir o `frontend`
 reclamando que a rede `caddy_edge` (externa) não existe.
 
-## 7. Verificar
+## 7. Primeiro login
+
+O backend popula o banco sozinho na primeira vez que sobe contra um banco
+vazio (`DataSeeder`, roda uma única vez — checa se já existe algum tenant e,
+se sim, não faz nada): cria o tenant "Escola de Tênis" já `Active` (sem
+precisar passar pelo checkout do Stripe), os 4 pontos de check-in Wellhub já
+combinados com o cliente, e um admin com o e-mail/senha de
+`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` (seção 4). Se essas duas variáveis
+não estiverem definidas no `.env`, o `up -d` nem sobe (seção 4) — isso é de
+propósito, pra não nascer em produção com a senha placeholder que existe no
+código-fonte (`admin@escoladetenis.com` / `Trocar@123`, usada só em dev).
+
+Depois do primeiro `up -d`, entre em `https://omniclub.run` com o e-mail e a
+senha que você definiu em `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`.
+
+**Importante**: hoje não existe tela de "trocar senha" no produto. Se
+precisar trocar a senha desse admin depois (ou de qualquer outro usuário),
+o único jeito é editar o hash direto na coleção `admin_users` do Atlas (o
+hash é bcrypt — `BCrypt.Net.BCrypt.HashPassword(novaSenha)`) ou, contanto
+que ainda não haja dado real em produção, apagar o tenant e reiniciar o
+backend para o `DataSeeder` rodar de novo com um novo valor de
+`SEED_ADMIN_PASSWORD`.
+
+## 8. Verificar
 
 ```bash
 curl -I https://omniclub.run
 curl -I https://omniclub.run/api/auth/login
 ```
 
-Teste também no navegador — login e navegação pela aplicação.
+Teste também no navegador — login com o admin da seção 7 e navegação pela
+aplicação.
 
-## 8. Visibilidade das imagens no GHCR
+## 9. Visibilidade das imagens no GHCR
 
 Por padrão, pacotes recém-criados no GHCR costumam nascer **privados**. Se a
 VPS não tiver `docker login ghcr.io` configurado, o `pull` da seção 6 falha.

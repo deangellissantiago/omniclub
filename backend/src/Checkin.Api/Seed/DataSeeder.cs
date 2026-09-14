@@ -11,6 +11,10 @@ namespace Checkin.Api.Seed;
 /// </summary>
 public static class DataSeeder
 {
+    // Usados quando Seed__AdminEmail/Seed__AdminPassword não estão configurados (dev local).
+    // Em produção, defina essas duas variáveis no .env da VPS com credenciais de verdade —
+    // caso contrário o admin nasce com esta senha placeholder, conhecida por qualquer um com
+    // acesso ao código-fonte.
     public const string DefaultAdminEmail = "admin@escoladetenis.com";
     public const string DefaultAdminPassword = "Trocar@123";
 
@@ -21,8 +25,12 @@ public static class DataSeeder
         var adminRepo = scope.ServiceProvider.GetRequiredService<IAdminUserRepository>();
         var pointRepo = scope.ServiceProvider.GetRequiredService<ICheckinPointRepository>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
         if (await tenantRepo.AnyAsync()) return;
+
+        var adminEmail = config["Seed:AdminEmail"] ?? DefaultAdminEmail;
+        var adminPassword = config["Seed:AdminPassword"] ?? DefaultAdminPassword;
 
         // Explícito (não só o default da classe): este é o tenant "fundador", sem passar pelo
         // checkout do Stripe — ver Tenant.SubscriptionStatus.
@@ -32,8 +40,8 @@ public static class DataSeeder
         {
             TenantId = tenant.Id,
             Name = "Administrador",
-            Email = DefaultAdminEmail,
-            PasswordHash = hasher.Hash(DefaultAdminPassword)
+            Email = adminEmail,
+            PasswordHash = hasher.Hash(adminPassword)
         });
 
         var seedPoints = new (string ExternalId, string Name)[]
