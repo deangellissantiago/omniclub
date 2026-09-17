@@ -30,4 +30,7 @@ public class TenantRepository : ITenantRepository
 
     public async Task<Tenant?> GetByStripeCustomerIdAsync(string stripeCustomerId, CancellationToken ct = default) =>
         await _context.Tenants.Find(t => t.StripeCustomerId == stripeCustomerId).FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<Tenant>> ListAsync(CancellationToken ct = default) =>
+        await _context.Tenants.Find(FilterDefinition<Tenant>.Empty).ToListAsync(ct);
 }

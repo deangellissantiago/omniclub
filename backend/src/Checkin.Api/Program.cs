@@ -1,4 +1,5 @@
 using System.Text;
+using Checkin.Api.BackgroundJobs;
 using Checkin.Api.Middleware;
 using Checkin.Api.Security;
 using Checkin.Api.Seed;
@@ -11,10 +12,13 @@ using Checkin.Application.UseCases.CheckinPoints;
 using Checkin.Application.UseCases.Checkins;
 using Checkin.Application.UseCases.Dashboard;
 using Checkin.Application.UseCases.Reports;
+using Checkin.Application.UseCases.Retention;
 using Checkin.Application.UseCases.Students;
+using Checkin.Application.UseCases.Webhooks;
 using Checkin.Infrastructure.Persistence.Mongo;
 using Checkin.Infrastructure.Stripe;
 using Checkin.Infrastructure.Wellhub;
+using Checkin.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -73,6 +77,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddMongoPersistence(builder.Configuration);
 builder.Services.AddWellhubIntegration(builder.Configuration);
 builder.Services.AddBillingIntegration(builder.Configuration);
+builder.Services.AddWhatsAppIntegration(builder.Configuration);
 
 // Segurança
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
@@ -89,6 +94,11 @@ builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<RetentionAlertService>();
+builder.Services.AddHostedService<RetentionAlertHostedService>();
+builder.Services.AddScoped<WebhookProcessingService>();
+builder.Services.AddSingleton<IWebhookEventSignal, ChannelWebhookEventSignal>();
+builder.Services.AddHostedService<WebhookProcessingHostedService>();
 
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Jwt:Secret não configurado.");

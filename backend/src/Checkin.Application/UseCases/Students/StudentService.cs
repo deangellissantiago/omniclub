@@ -41,7 +41,8 @@ public class StudentService
             Document = request.Document,
             WellhubMemberId = request.WellhubMemberId,
             TotalPassMemberId = request.TotalPassMemberId,
-            Active = request.Active
+            Active = request.Active,
+            BirthDate = request.BirthDate
         };
         var created = await _repository.CreateAsync(student, ct);
         return ToDto(created);
@@ -59,6 +60,7 @@ public class StudentService
         student.WellhubMemberId = request.WellhubMemberId;
         student.TotalPassMemberId = request.TotalPassMemberId;
         student.Active = request.Active;
+        student.BirthDate = request.BirthDate;
         student.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(student, ct);
@@ -72,5 +74,5 @@ public class StudentService
     }
 
     private static StudentDto ToDto(Student s) => new(
-        s.Id, s.Name, s.Email, s.Phone, s.Document, s.WellhubMemberId, s.TotalPassMemberId, s.Active, s.CreatedAt);
+        s.Id, s.Name, s.Email, s.Phone, s.Document, s.WellhubMemberId, s.TotalPassMemberId, s.Active, s.CreatedAt, s.BirthDate);
 }

@@ -388,3 +388,46 @@ campo `totalPassMemberId` no aluno, CRUD de pontos de check-in por app). Adicion
 futuro é: 1) criar `Checkin.Infrastructure.TotalPass` com seu adapter, 2) adicionar um endpoint
 de webhook equivalente, 3) permitir `App: TotalPass` no formulário de pontos de check-in do
 frontend — sem alterar Domain, Application, dashboard ou relatórios.
+
+## Régua de relacionamento (WhatsApp) — Fase 3 do roadmap
+
+`RetentionAlertService` (`Checkin.Application/UseCases/Retention`) roda uma vez por dia
+(`RetentionAlertHostedService`, configurável via `RetentionAlerts:IntervalHours`) e manda três
+alertas via WhatsApp, sempre mensagem de **template** pré-aprovado (a Cloud API não aceita texto
+livre pra mensagem iniciada pelo negócio):
+
+| Alerta | Pra quem | Regra |
+|---|---|---|
+| Aluno sumido | `Student.Phone` | 14+ dias sem check-in (mesmo limiar do relatório de Engajamento), cooldown de 14 dias entre alertas do mesmo aluno |
+| Aniversário | `Student.Phone` | `Student.BirthDate` bate com hoje, uma vez por ano |
+| Queda de movimento | `Tenant.AlertsWhatsAppPhone` | últimos 7 dias caíram 30%+ vs. os 7 anteriores (ignora pontos com menos de 5 check-ins no período anterior — volume baixo demais pra % fazer sentido), cooldown de 7 dias |
+
+Quem manda de verdade é o **[whatsapp-service](https://github.com/deangellissantiago/whatsapp-service)**
+— um serviço standalone separado (Meta WhatsApp Cloud API por trás), pensado pra ser reaproveitado
+por outros projetos, não só o OmniClub. O OmniClub só chama `POST /api/messages/template` nele
+(`IWhatsAppSender` / `Checkin.Infrastructure.WhatsApp`, configurado via `WhatsApp:BaseUrl` +
+`WhatsApp:ApiKey`) — sem `WhatsApp:BaseUrl`, a régua fica desligada (loga e sai, não quebra o
+resto da API).
+
+**Como ligar em dev local:**
+1. Suba o whatsapp-service (repositório separado) e crie a rede compartilhada uma vez:
+   `docker network create whatsapp_shared`.
+2. Suba o OmniClub com o overlay opcional (adiciona a rede + aponta `WhatsApp__BaseUrl` pro
+   container do whatsapp-service):
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.whatsapp.yml up --build
+   ```
+3. Configure `WHATSAPP_SERVICE_BASE_URL=http://whatsapp-service:8080/api` e
+   `WHATSAPP_SERVICE_API_KEY=<mesma chave do SERVICE_API_KEY do whatsapp-service>` no `.env`.
+
+Sem esse overlay, o `docker compose up` normal (seção "Como rodar" acima) continua funcionando
+exatamente igual — a rede `whatsapp_shared` só é exigida quando você pede o overlay.
+
+**Pendências pra alertas de verdade saírem** (fora do escopo de código, iguais ao Wellhub/Stripe):
+1. Conta no Meta Business Manager com WhatsApp Business Account configurado, `Phone Number Id` e
+   token de acesso permanente — configurados no `.env` do **whatsapp-service**, não no OmniClub.
+2. Criar e aprovar os três templates no Meta Business Manager: `aluno_sumido` (parâmetros: nome
+   do aluno, nome da escola), `feliz_aniversario` (nome do aluno), `queda_movimento` (nome do
+   ponto, % de queda).
+3. Preencher `Student.Phone` dos alunos e `Tenant.AlertsWhatsAppPhone` (esse último ainda sem
+   tela — defina direto na coleção `tenants` do Mongo, mesmo caminho do reset de senha de admin).

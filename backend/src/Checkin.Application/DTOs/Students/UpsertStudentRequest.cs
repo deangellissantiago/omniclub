@@ -7,4 +7,7 @@ public record UpsertStudentRequest(
     string? Document,
     string? WellhubMemberId,
     string? TotalPassMemberId,
-    bool Active);
+    bool Active,
+    /// <summary>Opcional — usada só pela régua de relacionamento automática (mensagem de
+    /// aniversário via WhatsApp, ver RetentionAlertService).</summary>
+    DateTime? BirthDate = null);

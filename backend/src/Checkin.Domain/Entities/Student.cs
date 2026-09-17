@@ -22,4 +22,17 @@ public class Student
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>Data de nascimento (opcional) — usada pela régua de relacionamento automática
+    /// (mensagem de aniversário, ver RetentionAlertService). Sem isso, o aluno simplesmente não
+    /// entra nesse alerta específico.</summary>
+    public DateTime? BirthDate { get; set; }
+
+    /// <summary>Último WhatsApp de "sentimos sua falta" mandado pra esse aluno — evita mandar de
+    /// novo todo dia enquanto ele continuar sumido (cooldown, ver RetentionAlertService).</summary>
+    public DateTime? LastInactivityAlertSentAt { get; set; }
+
+    /// <summary>Ano em que já mandamos o WhatsApp de aniversário deste aluno — evita duplicar se
+    /// o job diário rodar mais de uma vez no mesmo dia.</summary>
+    public int? LastBirthdayAlertSentYear { get; set; }
 }

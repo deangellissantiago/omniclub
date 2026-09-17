@@ -28,6 +28,9 @@ public class FakeTenantRepository : ITenantRepository
 
     public Task<Tenant?> GetByStripeCustomerIdAsync(string stripeCustomerId, CancellationToken ct = default) =>
         Task.FromResult(Tenants.FirstOrDefault(t => t.StripeCustomerId == stripeCustomerId));
+
+    public Task<IReadOnlyList<Tenant>> ListAsync(CancellationToken ct = default) =>
+        Task.FromResult((IReadOnlyList<Tenant>)Tenants.ToList());
 }
 
 public class FakeAdminUserRepository : IAdminUserRepository

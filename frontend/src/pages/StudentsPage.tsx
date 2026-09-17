@@ -12,7 +12,12 @@ const EMPTY_FORM: UpsertStudent = {
   wellhubMemberId: "",
   totalPassMemberId: "",
   active: true,
+  birthDate: null,
 };
+
+function toDateInputValue(iso?: string | null): string {
+  return iso ? iso.slice(0, 10) : "";
+}
 
 export function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -39,6 +44,7 @@ export function StudentsPage() {
       wellhubMemberId: student.wellhubMemberId ?? "",
       totalPassMemberId: student.totalPassMemberId ?? "",
       active: student.active,
+      birthDate: student.birthDate ?? null,
     });
   }
 
@@ -103,6 +109,14 @@ export function StudentsPage() {
             <input value={form.document ?? ""} onChange={(e) => setForm({ ...form, document: e.target.value })} />
           </label>
           <label>
+            Aniversário
+            <input
+              type="date"
+              value={toDateInputValue(form.birthDate)}
+              onChange={(e) => setForm({ ...form, birthDate: e.target.value || null })}
+            />
+          </label>
+          <label>
             Wellhub ID
             <input
               value={form.wellhubMemberId ?? ""}
@@ -144,6 +158,7 @@ export function StudentsPage() {
               <th>E-mail</th>
               <th>Telefone</th>
               <th>Wellhub ID</th>
+              <th>Aniversário</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -151,7 +166,7 @@ export function StudentsPage() {
           <tbody>
             {students.length === 0 && (
               <TableEmpty
-                colSpan={6}
+                colSpan={7}
                 title="Nenhum aluno cadastrado ainda"
                 hint="Use o formulário acima para cadastrar o primeiro aluno."
               />
@@ -167,6 +182,9 @@ export function StudentsPage() {
                 <td>{s.email ?? "-"}</td>
                 <td>{s.phone ?? "-"}</td>
                 <td>{s.wellhubMemberId ?? "-"}</td>
+                <td className={s.birthDate ? undefined : "muted"}>
+                  {s.birthDate ? new Date(s.birthDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "-"}
+                </td>
                 <td><ActiveBadge active={s.active} /></td>
                 <td className="actions-cell">
                   <button className="btn-link" onClick={() => startEdit(s)}>Editar</button>

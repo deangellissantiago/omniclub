@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Checkin.Application\Checkin.Application.csproj" />
     <ProjectReference Include="..\..\src\Checkin.Infrastructure.Wellhub\Checkin.Infrastructure.Wellhub.csproj" />
     <ProjectReference Include="..\..\src\Checkin.Api\Checkin.Api.csproj" />
+    <ProjectReference Include="..\..\src\Checkin.Infrastructure.WhatsApp\Checkin.Infrastructure.WhatsApp.csproj" />
   </ItemGroup>
 
 </Project>

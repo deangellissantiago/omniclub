@@ -45,6 +45,8 @@ export interface Student {
   totalPassMemberId?: string | null;
   active: boolean;
   createdAt: string;
+  /** Opcional — usada só pela régua de relacionamento automática (mensagem de aniversário via WhatsApp). */
+  birthDate?: string | null;
 }
 
 export type UpsertStudent = Omit<Student, "id" | "createdAt">;

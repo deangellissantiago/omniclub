@@ -6,6 +6,7 @@ COPY src/Checkin.Application/Checkin.Application.csproj Checkin.Application/
 COPY src/Checkin.Infrastructure.Persistence.Mongo/Checkin.Infrastructure.Persistence.Mongo.csproj Checkin.Infrastructure.Persistence.Mongo/
 COPY src/Checkin.Infrastructure.Wellhub/Checkin.Infrastructure.Wellhub.csproj Checkin.Infrastructure.Wellhub/
 COPY src/Checkin.Infrastructure.Stripe/Checkin.Infrastructure.Stripe.csproj Checkin.Infrastructure.Stripe/
+COPY src/Checkin.Infrastructure.WhatsApp/Checkin.Infrastructure.WhatsApp.csproj Checkin.Infrastructure.WhatsApp/
 COPY src/Checkin.Api/Checkin.Api.csproj Checkin.Api/
 RUN dotnet restore Checkin.Api/Checkin.Api.csproj
 

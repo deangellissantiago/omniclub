@@ -37,13 +37,36 @@ Testado: 75 testes de backend (8 novos: `RevenueAsync`, `AppPenetrationAsync`,
 limpos, validado ao vivo contra o Mongo do ambiente de dev (preço configurado via API, os 3
 endpoints novos + export CSV conferidos) e suíte E2E sem erros de console/rede.
 
-## Fase 3 — retenção proativa / régua de relacionamento (não implementado)
+## Fase 3 — retenção proativa / régua de relacionamento (✅ implementado, canal: WhatsApp)
 
-- Alerta automático (e-mail/WhatsApp) pro aluno que sumiu há X dias — depende de e-mail
-  transacional existir no produto primeiro.
-- Aviso pro admin quando o movimento de um ponto cai muito semana a semana.
-- Aniversário do aluno na régua — precisa adicionar data de nascimento ao cadastro de `Student`
-  (campo não existe hoje).
+| Alerta | Backend | Regra |
+|---|---|---|
+| Aluno sumido | `RetentionAlertService.SendInactivityAlertsAsync` | 14+ dias sem check-in, cooldown de 14 dias |
+| Aniversário | `RetentionAlertService.SendBirthdayAlertsAsync` | `Student.BirthDate` bate com hoje, uma vez por ano |
+| Queda de movimento | `RetentionAlertService.SendPointDropAlertsAsync` | últimos 7 dias caíram 30%+ vs. os 7 anteriores, cooldown de 7 dias |
+
+Rodado uma vez por dia por `RetentionAlertHostedService` (`Checkin.Api/BackgroundJobs`).
+
+**Decisão de arquitetura**: o envio de WhatsApp virou um serviço standalone separado —
+**[whatsapp-service](https://github.com/deangellissantiago/whatsapp-service)** (Meta WhatsApp
+Cloud API), fora deste repositório, pra poder ser reaproveitado por outros projetos. O OmniClub
+só fala com ele por HTTP (`IWhatsAppSender` / `Checkin.Infrastructure.WhatsApp`) — ver seção
+"Régua de relacionamento (WhatsApp)" no README para como ligar os dois em dev local
+(`docker-compose.whatsapp.yml`, rede `whatsapp_shared`) e o que falta configurar na conta Meta
+pra alertas saírem de verdade.
+
+Também entrou: `Student.BirthDate` (campo novo, com tela de cadastro), `Tenant.AlertsWhatsAppPhone`
+(sem tela ainda — mesmo caminho do reset de senha, edita direto no Mongo).
+
+Testado: 100 testes de backend no OmniClub (25 novos: `RetentionAlertServiceTests` cobrindo os
+três alertas + cooldowns + casos de borda, `WhatsAppServiceClientTests` cobrindo o contrato HTTP
+com o whatsapp-service) + 18 testes no whatsapp-service (contrato com a Graph API da Meta contra
+handler fake, e os endpoints HTTP via `WebApplicationFactory`). Verificado ao vivo: os dois
+serviços buildam e rodam em Docker, a rede compartilhada resolve `whatsapp-service:8080` de
+dentro do container do backend (testado com um container `curl` avulso na mesma rede), e o job
+loga corretamente "pulado" quando `WhatsApp:BaseUrl` não está configurado. **Não verificado**: o
+envio de ponta a ponta contra credenciais reais da Meta — isso exige conta no Business Manager e
+templates aprovados, que só o Deangellis pode configurar (ver "Pendências" no README).
 
 ## Fase 4 — funil leve / CRM (não implementado)
 

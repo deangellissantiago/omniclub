@@ -9,4 +9,5 @@ public record StudentDto(
     string? WellhubMemberId,
     string? TotalPassMemberId,
     bool Active,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    DateTime? BirthDate);

@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Checkin.Tests", "tests\Chec
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Checkin.Infrastructure.Stripe", "src\Checkin.Infrastructure.Stripe\Checkin.Infrastructure.Stripe.csproj", "{58565BC8-7725-4E89-B119-45B09E388498}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Checkin.Infrastructure.WhatsApp", "src\Checkin.Infrastructure.WhatsApp\Checkin.Infrastructure.WhatsApp.csproj", "{E2E777C0-13EC-4FF0-9D07-27D443781DBF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -58,6 +60,10 @@ Global
 		{58565BC8-7725-4E89-B119-45B09E388498}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{58565BC8-7725-4E89-B119-45B09E388498}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{58565BC8-7725-4E89-B119-45B09E388498}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E2E777C0-13EC-4FF0-9D07-27D443781DBF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2E777C0-13EC-4FF0-9D07-27D443781DBF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2E777C0-13EC-4FF0-9D07-27D443781DBF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2E777C0-13EC-4FF0-9D07-27D443781DBF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BE18F103-A945-4AD9-AFC5-2EBF7E5DD619} = {01ADA383-C952-479C-9FB2-BEAAA887B6F0}
@@ -67,5 +73,6 @@ Global
 		{A0DE0F40-C03F-49C6-AD0E-F8EDF35A8E0B} = {01ADA383-C952-479C-9FB2-BEAAA887B6F0}
 		{7684A990-4947-4E81-AB39-ECEC205B913B} = {21E9BB94-FA09-49EC-B4FB-FFFB6FC7B2F9}
 		{58565BC8-7725-4E89-B119-45B09E388498} = {01ADA383-C952-479C-9FB2-BEAAA887B6F0}
+		{E2E777C0-13EC-4FF0-9D07-27D443781DBF} = {01ADA383-C952-479C-9FB2-BEAAA887B6F0}
 	EndGlobalSection
 EndGlobal

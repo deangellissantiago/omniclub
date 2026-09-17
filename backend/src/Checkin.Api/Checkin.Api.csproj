@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Checkin.Infrastructure.Persistence.Mongo\Checkin.Infrastructure.Persistence.Mongo.csproj" />
     <ProjectReference Include="..\Checkin.Infrastructure.Wellhub\Checkin.Infrastructure.Wellhub.csproj" />
     <ProjectReference Include="..\Checkin.Infrastructure.Stripe\Checkin.Infrastructure.Stripe.csproj" />
+    <ProjectReference Include="..\Checkin.Infrastructure.WhatsApp\Checkin.Infrastructure.WhatsApp.csproj" />
   </ItemGroup>
 
 </Project>

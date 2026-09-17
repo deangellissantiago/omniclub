@@ -3,9 +3,8 @@ services:
     image: mongo:7
     container_name: checkin-mongo
     restart: unless-stopped
-    # Não publicado no host de propósito: outros projetos nesta máquina já usam 27017/27018.
-    # O backend acessa via rede interna do compose (mongo:27017). Para inspecionar com um
-    # cliente Mongo local, publique uma porta livre aqui (ex.: "27099:27017").
+    ports:
+      - "29999:27017"
     volumes:
       - mongo-data:/data/db
 
@@ -35,6 +34,13 @@ services:
       Billing__Currency: ${STRIPE_CURRENCY:-brl}
       Billing__FrontendBaseUrl: ${FRONTEND_URL:-http://localhost:5271}
       Cors__AllowedOrigins__0: ${FRONTEND_URL:-http://localhost:5271}
+      # Serviço standalone de WhatsApp (repositório separado, github.com/.../whatsapp-service —
+      # ver seu README). Vazio = régua de relacionamento desligada (RetentionAlertHostedService
+      # só loga "pulado", não quebra o resto da API). Aponte pro nome do container na rede
+      # whatsapp_shared (ver abaixo), não pra localhost — o backend roda dentro do container.
+      WhatsApp__BaseUrl: ${WHATSAPP_SERVICE_BASE_URL:-}
+      WhatsApp__ApiKey: ${WHATSAPP_SERVICE_API_KEY:-}
+      RetentionAlerts__IntervalHours: ${RETENTION_ALERTS_INTERVAL_HOURS:-24}
     ports:
       - "5280:8080"
 

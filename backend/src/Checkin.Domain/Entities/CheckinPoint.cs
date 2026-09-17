@@ -25,6 +25,11 @@ public class CheckinPoint
     /// ver ReportService.RevenueAsync — nunca estimamos em cima de um valor que não foi informado).</summary>
     public int? PricePerCheckinCents { get; set; }
 
+    /// <summary>Último alerta de queda de movimento mandado pro WhatsApp de operação do tenant
+    /// (ver Tenant.AlertsWhatsAppPhone) — evita mandar de novo todo dia enquanto o movimento
+    /// continuar baixo (cooldown, ver RetentionAlertService).</summary>
+    public DateTime? LastDropAlertSentAt { get; set; }
+
     /// <summary>Produtos Wellhub vinculados a este ponto (ver CheckinPointService.SyncProductsAsync
     /// e WellhubProductRef). Vazio até alguém clicar em "Buscar produtos" no cadastro do ponto.</summary>
     public List<WellhubProductRef> Products { get; set; } = new();

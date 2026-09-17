@@ -22,4 +22,5 @@ public class MongoContext
     public IMongoCollection<WellhubClass> Classes => _database.GetCollection<WellhubClass>("classes");
     public IMongoCollection<ClassSlot> ClassSlots => _database.GetCollection<ClassSlot>("class_slots");
     public IMongoCollection<Booking> Bookings => _database.GetCollection<Booking>("bookings");
+    public IMongoCollection<WebhookEvent> WebhookEvents => _database.GetCollection<WebhookEvent>("webhook_events");
 }

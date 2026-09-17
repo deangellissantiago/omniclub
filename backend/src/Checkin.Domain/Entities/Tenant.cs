@@ -25,4 +25,10 @@ public class Tenant
     public string? StripeCustomerId { get; set; }
     public string? StripeSubscriptionId { get; set; }
     public DateTime? SubscriptionCurrentPeriodEnd { get; set; }
+
+    /// <summary>WhatsApp (com DDI, ex.: "5531999999999") para onde a régua de relacionamento
+    /// automática manda alertas operacionais (ex.: queda de movimento de um ponto de check-in —
+    /// ver RetentionAlertService). Sem tela de configuração ainda: defina direto na coleção
+    /// `tenants` do Mongo, mesmo caminho já usado para resetar senha de admin (ver README).</summary>
+    public string? AlertsWhatsAppPhone { get; set; }
 }

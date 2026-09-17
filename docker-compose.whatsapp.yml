@@ -1,0 +1,14 @@
+services:
+  backend:
+    networks:
+      - default
+      - whatsapp_shared
+
+networks:
+  # Rede compartilhada com o whatsapp-service (repositório separado, fora deste monorepo) — só o
+  # backend entra nela, pra conseguir resolver "whatsapp-service:8080" via DNS do Docker em vez
+  # de depender de porta publicada/host.docker.internal. Precisa existir antes do primeiro
+  # `up` (mesma rede que o whatsapp-service também declara como external):
+  #   docker network create whatsapp_shared
+  whatsapp_shared:
+    external: true

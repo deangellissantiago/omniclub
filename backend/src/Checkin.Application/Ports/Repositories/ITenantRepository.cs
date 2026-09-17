@@ -12,4 +12,8 @@ public interface ITenantRepository
     /// <summary>Usado pelo webhook do Stripe: eventos de assinatura (customer.subscription.*)
     /// só trazem o customer id, não o tenantId — precisamos achar o tenant dono.</summary>
     Task<Tenant?> GetByStripeCustomerIdAsync(string stripeCustomerId, CancellationToken ct = default);
+
+    /// <summary>Todos os tenants — usado pelo job da régua de relacionamento (RetentionAlertService),
+    /// que roda em background, fora do escopo de um tenant específico.</summary>
+    Task<IReadOnlyList<Tenant>> ListAsync(CancellationToken ct = default);
 }
