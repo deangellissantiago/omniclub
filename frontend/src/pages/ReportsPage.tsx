@@ -16,7 +16,6 @@ import {
 import type {
   AppPenetrationReport,
   AttendanceReport,
-  BookingStatus,
   EngagementReport,
   GeneralReport,
   GrowthReport,
@@ -30,6 +29,7 @@ import type {
 } from "../api/types";
 import { extractErrorMessage } from "../api/client";
 import { formatMoneyCents } from "../lib/money";
+import { BOOKING_STATUS_LABEL } from "../lib/bookingStatus";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { AppBadge, Avatar, EmptyState, EngagementBadge, IconCheckCircle, IconCreditCard, IconDownload, IconMapPin, TableEmpty } from "../components/ui";
 
@@ -55,14 +55,6 @@ const WEEKDAYS: { key: WeekDay; label: string }[] = [
   { key: "Saturday", label: "Sáb" },
   { key: "Sunday", label: "Dom" },
 ];
-
-const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
-  Requested: "Solicitada",
-  Confirmed: "Confirmada",
-  Rejected: "Rejeitada (sem vaga)",
-  Canceled: "Cancelada",
-  LateCanceled: "Cancelada em cima da hora",
-};
 
 function formatDate(value?: string | null): string {
   return value ? new Date(value).toLocaleString("pt-BR") : "-";

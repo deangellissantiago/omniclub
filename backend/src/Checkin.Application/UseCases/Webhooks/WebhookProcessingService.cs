@@ -133,8 +133,10 @@ public class WebhookProcessingService
             return;
         }
 
+        // Booking manda o nome completo num campo só (check-in manda first/last separados).
+        var userInfo = new WellhubUserInfo(data.User.Name, null, data.User.Email, data.User.PhoneNumber);
         await _bookingService.HandleBookingRequestedAsync(
-            data.Slot.Id.Value.ToString(), data.User.UniqueToken, data.Slot.BookingNumber, ToUtcDateTime(data.Timestamp), rawBody, ct);
+            data.Slot.Id.Value.ToString(), data.User.UniqueToken, data.Slot.BookingNumber, ToUtcDateTime(data.Timestamp), rawBody, userInfo, ct);
     }
 
     private async Task HandleBookingCanceledAsync(string rawBody, bool lateCancel, CancellationToken ct)

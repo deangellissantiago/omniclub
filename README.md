@@ -96,7 +96,7 @@ npm run dev
 
 ## Testes
 
-- **Backend**: `cd backend && dotnet test` — 60 testes (unit) cobrindo os casos de uso de
+- **Backend**: `cd backend && dotnet test` — 112 testes (unit) cobrindo os casos de uso de
   Check-in/Booking/Billing/Auth, os gateways Wellhub/Stripe e o `SimulationController` (ver
   "Integração Wellhub"/"Cobrança / Stripe" abaixo).
 - **Backend (E2E do Swagger)**: `cd backend/e2e && npm install && npm test` — Playwright dirige o
@@ -133,6 +133,14 @@ npm run dev
   (`CheckinPointService.SyncProductsAsync` / `POST /api/checkin-points/{id}/sync-products`) — são
   os `productId`s usados depois pra criar categorias de aula (ver Booking API).
 - **Check-ins**: aprovação sempre automática (não existe fluxo de aprovação manual).
+- **Agenda de aulas** (`/agenda`): cria categorias de aula (unidade + produto Wellhub) e horários
+  com vagas, com opção de repetir o mesmo horário por N semanas — tudo publicado no Wellhub na
+  hora (Booking API). O que não chegou ao Wellhub (falha de rede, integração sem `ApiKey`) fica
+  marcado "Pendente" e sobe de novo pelo botão "Sincronizar" (`POST /api/classes/{id}/sync`,
+  só horários futuros).
+- **Reservas** (`/reservas`): lista as reservas vindas do Wellhub com aluno, aula, unidade,
+  horário e status (`GET /api/bookings`). Assim como no check-in, o aluno que reserva sem estar
+  cadastrado é pré-registrado com nome/e-mail/telefone do próprio webhook.
 - **Dashboard**: total de check-ins por app, total de alunos cadastrados por app, últimos
   check-ins.
 - **Relatórios** (todos com filtro de data `startDate`/`endDate`):
@@ -266,6 +274,8 @@ not found in database" — testamos os 10, nenhum tem check-in pré-registrado).
 Implementado e testado ao vivo contra o Sandbox 609 em 2026-09-10, do zero até o fim: **listar
 produtos → criar categoria → criar aula/slot → simular reserva → confirmar automaticamente →
 sincronizar vaga → cancelar**. Todas as chamadas reais retornaram sucesso (200/201/204).
+Re-testado em 2026-09-28 pelas telas novas (Agenda de aulas → Reservas): categorias
+`16891`/`16892`, slots `312328`/`312329`, reservas confirmadas com o aluno pré-registrado.
 
 | Etapa | Chamada nossa | Confirmado ao vivo |
 | --- | --- | --- |
@@ -309,7 +319,7 @@ padrão da Access Control API, e errado em vários pontos — todos corrigidos:
 
 ```bash
 cd backend
-dotnet test                                   # 41 testes: Checkin/Booking services, WellhubSignature, gateways
+dotnet test                                   # 112 testes: Checkin/Booking services, WellhubSignature, gateways
 ./scripts/simulate-wellhub-checkin.sh         # end-to-end local: assina e envia um check-in de teste
                                                # para a API rodando (docker compose ou dotnet run),
                                                # cadastra o CheckinPoint 609 se faltar

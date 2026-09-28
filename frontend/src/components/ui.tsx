@@ -1,5 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
-import type { CheckinStatus, IntegrationApp } from "../api/types";
+import type { BookingStatus, CheckinStatus, IntegrationApp } from "../api/types";
+import { BOOKING_STATUS_LABEL } from "../lib/bookingStatus";
 
 /* ---------- Logo ---------- */
 
@@ -133,6 +134,24 @@ export const IconAlertTriangle = (p: IconProps) => (
   </Icon>
 );
 
+export const IconCalendar = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </Icon>
+);
+
+export const IconTicket = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 0 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+    <path d="M13 5v2" />
+    <path d="M13 17v2" />
+    <path d="M13 11v2" />
+  </Icon>
+);
+
 /* ---------- Avatar com iniciais ---------- */
 
 export function Avatar({ name, small = false }: { name?: string | null; small?: boolean }) {
@@ -158,6 +177,33 @@ export function StatusBadge({ status }: { status: CheckinStatus }) {
     <span className={`badge badge-${status.toLowerCase()}`}>
       <span className="dot" />
       {STATUS_LABEL[status] ?? status}
+    </span>
+  );
+}
+
+const BOOKING_STATUS_TONE: Record<BookingStatus, "approved" | "rejected" | "pending"> = {
+  Requested: "pending",
+  Confirmed: "approved",
+  Rejected: "rejected",
+  Canceled: "rejected",
+  LateCanceled: "rejected",
+};
+
+export function BookingStatusBadge({ status }: { status: BookingStatus }) {
+  return (
+    <span className={`badge badge-${BOOKING_STATUS_TONE[status] ?? "pending"}`}>
+      <span className="dot" />
+      {BOOKING_STATUS_LABEL[status] ?? status}
+    </span>
+  );
+}
+
+/** Se o item (categoria/horário) já existe do lado do Wellhub — só aí o aluno enxerga no app. */
+export function SyncBadge({ synced }: { synced: boolean }) {
+  return (
+    <span className={`badge ${synced ? "badge-approved" : "badge-pending"}`}>
+      <span className="dot" />
+      {synced ? "No Wellhub" : "Pendente"}
     </span>
   );
 }

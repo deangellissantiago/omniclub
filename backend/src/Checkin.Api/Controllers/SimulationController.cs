@@ -74,7 +74,7 @@ public class SimulationController : ControllerBase
     {
         var result = await _bookingService.HandleBookingRequestedAsync(
             request.SlotExternalId, request.GympassId, request.ExternalBookingId,
-            request.RequestedAt ?? DateTime.UtcNow, rawPayload: null, ct);
+            request.RequestedAt ?? DateTime.UtcNow, rawPayload: null, ct: ct);
 
         return Ok(result);
     }

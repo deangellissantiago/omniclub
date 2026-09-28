@@ -9,6 +9,8 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { StudentsPage } from "./pages/StudentsPage";
 import { CheckinPointsPage } from "./pages/CheckinPointsPage";
 import { CheckinsPage } from "./pages/CheckinsPage";
+import { ClassesPage } from "./pages/ClassesPage";
+import { BookingsPage } from "./pages/BookingsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -30,6 +32,8 @@ export default function App() {
         <Route path="/alunos" element={<Protected><StudentsPage /></Protected>} />
         <Route path="/pontos-de-checkin" element={<Protected><CheckinPointsPage /></Protected>} />
         <Route path="/checkins" element={<Protected><CheckinsPage /></Protected>} />
+        <Route path="/agenda" element={<Protected><ClassesPage /></Protected>} />
+        <Route path="/reservas" element={<Protected><BookingsPage /></Protected>} />
         <Route path="/relatorios" element={<Protected><ReportsPage /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -4,12 +4,14 @@ import { useAuth } from "../context/AuthContext";
 import {
   Avatar,
   BrandLockup,
+  IconCalendar,
   IconChart,
   IconCheckCircle,
   IconCreditCard,
   IconGrid,
   IconLogout,
   IconMapPin,
+  IconTicket,
   IconUsers,
 } from "./ui";
 
@@ -18,6 +20,8 @@ const NAV_ITEMS: { to: string; label: string; icon: ComponentType<{ size?: numbe
   { to: "/alunos", label: "Alunos", icon: IconUsers },
   { to: "/pontos-de-checkin", label: "Pontos de check-in", icon: IconMapPin },
   { to: "/checkins", label: "Check-ins", icon: IconCheckCircle },
+  { to: "/agenda", label: "Agenda de aulas", icon: IconCalendar },
+  { to: "/reservas", label: "Reservas", icon: IconTicket },
   { to: "/relatorios", label: "Relatórios", icon: IconChart },
   { to: "/assinatura", label: "Assinatura", icon: IconCreditCard },
 ];

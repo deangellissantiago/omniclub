@@ -422,6 +422,7 @@ input, select { font-family: var(--font-ui); }
 .data-table tbody tr { transition: background 0.12s ease; }
 .data-table tbody tr:hover { background: var(--blue-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr.row-selected { background: var(--blue-100); }
 
 .data-table td { font-variant-numeric: tabular-nums; }
 
@@ -606,6 +607,15 @@ input, select { font-family: var(--font-ui); }
   padding: 0.6rem 0.9rem;
   font-size: 0.88rem;
   margin: 0.9rem 0 0;
+}
+
+.notice-text {
+  color: var(--success-text);
+  background: var(--success-bg);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.88rem;
+  margin: 0 0 1.2rem;
 }
 
 /* ---------- Filtros / Tabs ---------- */

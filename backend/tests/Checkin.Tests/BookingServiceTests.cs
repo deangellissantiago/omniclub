@@ -155,4 +155,84 @@ public class BookingServiceTests
 
         Assert.Null(dto);
     }
+
+    [Fact]
+    public async Task ListBookings_resolves_student_class_slot_and_checkin_point()
+    {
+        var slot = SeedSlot(capacity: 10);
+        var student = new Student { TenantId = TenantId, Name = "Ana", WellhubMemberId = GympassId };
+        _students.Students.Add(student);
+        _bookings.Bookings.Add(new Booking
+        {
+            TenantId = TenantId, SlotId = slot.Id, StudentId = student.Id, GympassId = GympassId,
+            ExternalBookingId = "booking-10", Status = BookingStatus.Confirmed, RequestedAt = DateTime.UtcNow
+        });
+
+        var items = await BuildService().ListBookingsAsync(null, null);
+
+        var item = Assert.Single(items);
+        Assert.Equal("Ana", item.StudentName);
+        Assert.Equal("Tênis Iniciante", item.ClassName);
+        Assert.Equal("Sandbox", item.CheckinPointName);
+        Assert.Equal(slot.StartsAt, item.SlotStartsAt);
+    }
+
+    [Fact]
+    public async Task SyncClass_creates_missing_class_and_only_future_unsynced_slots_in_wellhub()
+    {
+        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        _points.Points.Add(point);
+        var wellhubClass = new WellhubClass { TenantId = TenantId, CheckinPointId = point.Id, Name = "Tênis", ProductId = 1217 };
+        _classes.Classes.Add(wellhubClass);
+        var future = new ClassSlot { TenantId = TenantId, ClassId = wellhubClass.Id, StartsAt = DateTime.UtcNow.AddDays(2), EndsAt = DateTime.UtcNow.AddDays(2).AddHours(1), Capacity = 8 };
+        var past = new ClassSlot { TenantId = TenantId, ClassId = wellhubClass.Id, StartsAt = DateTime.UtcNow.AddDays(-2), EndsAt = DateTime.UtcNow.AddDays(-2).AddHours(1), Capacity = 8 };
+        _slots.Slots.AddRange(new[] { future, past });
+
+        _gateway.SetupGet(g => g.IsConfigured).Returns(true);
+        _gateway.Setup(g => g.CreateClassAsync(GymExternalId, "Tênis", null, 1217, It.IsAny<CancellationToken>())).ReturnsAsync("class-99");
+        _gateway.Setup(g => g.CreateSlotAsync(GymExternalId, "class-99", 1217, future.StartsAt, future.EndsAt, 8, It.IsAny<CancellationToken>())).ReturnsAsync("slot-99");
+
+        var dto = await BuildService().SyncClassAsync(wellhubClass.Id);
+
+        Assert.Equal("class-99", dto.ExternalId);
+        Assert.Equal("slot-99", future.ExternalId);
+        Assert.Null(past.ExternalId);
+        _gateway.Verify(g => g.CreateSlotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), past.StartsAt, It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SyncClass_fails_clearly_when_wellhub_is_not_configured()
+    {
+        var slot = SeedSlot(capacity: 5);
+        _gateway.SetupGet(g => g.IsConfigured).Returns(false);
+
+        await Assert.ThrowsAsync<Checkin.Application.Exceptions.ConflictException>(() => BuildService().SyncClassAsync(slot.ClassId));
+    }
+
+    [Fact]
+    public async Task CreateSlot_rejects_end_before_start()
+    {
+        var slot = SeedSlot(capacity: 5);
+        var start = DateTime.UtcNow.AddDays(1);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            BuildService().CreateSlotAsync(new Checkin.Application.DTOs.Bookings.CreateSlotRequest(slot.ClassId, start, start.AddMinutes(-30), 5)));
+    }
+
+    [Fact]
+    public async Task Booking_from_unknown_member_pre_registers_student_with_webhook_data()
+    {
+        SeedSlot(capacity: 5);
+        _gateway.SetupGet(g => g.IsConfigured).Returns(false);
+
+        var userInfo = new Checkin.Application.DTOs.Checkins.WellhubUserInfo("Mike Hightower", null, "mike@mail.com", "+15165930060");
+        var dto = await BuildService().HandleBookingRequestedAsync(SlotExternalId, GympassId, "booking-11", DateTime.UtcNow, "{}", userInfo);
+
+        var student = Assert.Single(_students.Students);
+        Assert.Equal("Mike Hightower", student.Name);
+        Assert.Equal(TenantId, student.TenantId);
+        Assert.Equal(GympassId, student.WellhubMemberId);
+        Assert.Equal(student.Id, dto.StudentId);
+        Assert.Equal("Mike Hightower", dto.StudentName);
+    }
 }

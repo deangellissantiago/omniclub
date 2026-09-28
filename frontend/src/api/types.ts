@@ -153,6 +153,57 @@ export interface PeakHoursReport {
 
 export type BookingStatus = "Requested" | "Confirmed" | "Rejected" | "Canceled" | "LateCanceled";
 
+/** Categoria de aula sincronizada com a Booking API do Wellhub. `externalId` nulo = ainda não
+ * existe do lado do Wellhub (criação falhou ou foi feita sem integração configurada). */
+export interface WellhubClass {
+  id: string;
+  checkinPointId: string;
+  name: string;
+  description?: string | null;
+  productId: number;
+  externalId?: string | null;
+  active: boolean;
+}
+
+export interface CreateClassRequest {
+  checkinPointId: string;
+  name: string;
+  description?: string | null;
+  productId: number;
+}
+
+/** Horário agendado de uma categoria — é o que o aluno reserva no app Wellhub. */
+export interface ClassSlot {
+  id: string;
+  classId: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  bookedCount: number;
+  externalId?: string | null;
+}
+
+export interface CreateSlotRequest {
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+}
+
+export interface BookingListItem {
+  id: string;
+  status: BookingStatus;
+  requestedAt: string;
+  respondedAt?: string | null;
+  studentId?: string | null;
+  studentName?: string | null;
+  gympassId: string;
+  classId?: string | null;
+  className?: string | null;
+  checkinPointId?: string | null;
+  checkinPointName?: string | null;
+  slotStartsAt?: string | null;
+}
+
 export interface BookingStatusCount {
   status: BookingStatus;
   total: number;

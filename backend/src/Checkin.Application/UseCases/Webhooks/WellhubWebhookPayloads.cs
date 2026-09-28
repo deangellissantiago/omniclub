@@ -12,7 +12,8 @@ public record EventEnvelope([property: JsonPropertyName("event_type")] string? E
 // Payload de booking — confirmado em 2026-09-10 contra os exemplos reais da collection do
 // Postman do parceiro ("Old - Gympass Quick Start Guide" > "Webhook Events"). Os 3 eventos
 // (booking-requested/-canceled/-late-canceled) compartilham o mesmo formato de event_data; só
-// booking-requested manda name/email do usuário.
+// booking-requested manda name/email/phone_number do usuário (phone_number visto ao vivo no
+// Sandbox em 2026-09-28).
 public record BookingWebhookPayload(
     [property: JsonPropertyName("event_type")] string EventType,
     [property: JsonPropertyName("event_data")] BookingEventData? EventData);
@@ -26,7 +27,8 @@ public record BookingEventData(
 public record BookingUser(
     [property: JsonPropertyName("unique_token")] string? UniqueToken,
     [property: JsonPropertyName("name")] string? Name,
-    [property: JsonPropertyName("email")] string? Email);
+    [property: JsonPropertyName("email")] string? Email,
+    [property: JsonPropertyName("phone_number")] string? PhoneNumber = null);
 
 public record BookingSlot(
     [property: JsonPropertyName("id")] long? Id,
