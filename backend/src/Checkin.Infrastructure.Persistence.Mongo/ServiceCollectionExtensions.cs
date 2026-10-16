@@ -23,6 +23,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClassSlotRepository, ClassSlotRepository>();
         services.AddScoped<IBookingRepository, BookingRepository>();
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<IOutboundWebhookDeliveryRepository, OutboundWebhookDeliveryRepository>();
 
         return services;
     }

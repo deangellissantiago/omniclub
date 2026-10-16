@@ -618,6 +618,31 @@ input, select { font-family: var(--font-ui); }
   margin: 0 0 1.2rem;
 }
 
+.secret-row { display: flex; gap: 0.5rem; align-items: stretch; }
+.secret-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem !important; }
+
+.code-block {
+  background: var(--purple-950);
+  color: #E9E4F7;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  margin: 0.4rem 0 0.9rem;
+}
+
+.panel code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  border-radius: 5px;
+  padding: 0 4px;
+  color: var(--ink);
+}
+
 /* ---------- Filtros / Tabs ---------- */
 
 .filter-bar {

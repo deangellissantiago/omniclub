@@ -11,6 +11,7 @@ import {
   IconGrid,
   IconLogout,
   IconMapPin,
+  IconSend,
   IconTicket,
   IconUsers,
 } from "./ui";
@@ -23,6 +24,7 @@ const NAV_ITEMS: { to: string; label: string; icon: ComponentType<{ size?: numbe
   { to: "/agenda", label: "Agenda de aulas", icon: IconCalendar },
   { to: "/reservas", label: "Reservas", icon: IconTicket },
   { to: "/relatorios", label: "Relatórios", icon: IconChart },
+  { to: "/webhook", label: "Webhook", icon: IconSend },
   { to: "/assinatura", label: "Assinatura", icon: IconCreditCard },
 ];
 

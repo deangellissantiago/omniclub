@@ -2,6 +2,7 @@ using Checkin.Application.DTOs.Checkins;
 using Checkin.Application.Ports;
 using Checkin.Application.Ports.Integrations;
 using Checkin.Application.Ports.Repositories;
+using Checkin.Application.UseCases.Webhooks;
 using Checkin.Domain.Entities;
 using Checkin.Domain.Enums;
 
@@ -14,19 +15,24 @@ public class CheckinService
     private readonly IStudentRepository _studentRepository;
     private readonly IWellhubGateway _wellhubGateway;
     private readonly ICurrentTenantContext _tenantContext;
+    private readonly OutboundWebhookService? _outboundWebhooks;
 
+    /// <param name="outboundWebhooks">Opcional só pra não obrigar todo teste a montar o webhook de
+    /// saída — em produção vem sempre do DI.</param>
     public CheckinService(
         ICheckinRecordRepository checkinRepository,
         ICheckinPointRepository checkinPointRepository,
         IStudentRepository studentRepository,
         IWellhubGateway wellhubGateway,
-        ICurrentTenantContext tenantContext)
+        ICurrentTenantContext tenantContext,
+        OutboundWebhookService? outboundWebhooks = null)
     {
         _checkinRepository = checkinRepository;
         _checkinPointRepository = checkinPointRepository;
         _studentRepository = studentRepository;
         _wellhubGateway = wellhubGateway;
         _tenantContext = tenantContext;
+        _outboundWebhooks = outboundWebhooks;
     }
 
     public async Task<IReadOnlyList<CheckinDto>> ListAsync(DateTime? start, DateTime? end, string? studentId, string? checkinPointId, CancellationToken ct = default)
@@ -68,6 +74,10 @@ public class CheckinService
             if (existing is not null)
             {
                 var existingStudent = existing.StudentId is not null ? await _studentRepository.GetByIdAsync(checkinPoint.TenantId, existing.StudentId, ct) : null;
+                // Reprocessamento do mesmo evento: garante o webhook de saída caso a gravação dele
+                // tenha falhado na primeira vez (o enqueue é idempotente).
+                if (_outboundWebhooks is not null)
+                    await _outboundWebhooks.EnqueueCheckinApprovedAsync(existing, existingStudent, checkinPoint, ct);
                 return ToDto(existing, existingStudent is null ? Array.Empty<Student>() : new[] { existingStudent }, new[] { checkinPoint });
             }
         }
@@ -117,6 +127,8 @@ public class CheckinService
         };
 
         var created = await _checkinRepository.CreateAsync(record, ct);
+        if (_outboundWebhooks is not null)
+            await _outboundWebhooks.EnqueueCheckinApprovedAsync(created, student, checkinPoint, ct);
         return ToDto(created, student is null ? Array.Empty<Student>() : new[] { student }, new[] { checkinPoint });
     }
 

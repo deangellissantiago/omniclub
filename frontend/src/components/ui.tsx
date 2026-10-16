@@ -152,6 +152,13 @@ export const IconTicket = (p: IconProps) => (
   </Icon>
 );
 
+export const IconSend = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m22 2-7 20-4-9-9-4Z" />
+    <path d="M22 2 11 13" />
+  </Icon>
+);
+
 /* ---------- Avatar com iniciais ---------- */
 
 export function Avatar({ name, small = false }: { name?: string | null; small?: boolean }) {

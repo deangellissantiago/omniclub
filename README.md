@@ -96,7 +96,7 @@ npm run dev
 
 ## Testes
 
-- **Backend**: `cd backend && dotnet test` — 112 testes (unit) cobrindo os casos de uso de
+- **Backend**: `cd backend && dotnet test` — 122 testes (unit) cobrindo os casos de uso de
   Check-in/Booking/Billing/Auth, os gateways Wellhub/Stripe e o `SimulationController` (ver
   "Integração Wellhub"/"Cobrança / Stripe" abaixo).
 - **Backend (E2E do Swagger)**: `cd backend/e2e && npm install && npm test` — Playwright dirige o
@@ -319,7 +319,7 @@ padrão da Access Control API, e errado em vários pontos — todos corrigidos:
 
 ```bash
 cd backend
-dotnet test                                   # 112 testes: Checkin/Booking services, WellhubSignature, gateways
+dotnet test                                   # 122 testes: Checkin/Booking services, WellhubSignature, gateways
 ./scripts/simulate-wellhub-checkin.sh         # end-to-end local: assina e envia um check-in de teste
                                                # para a API rodando (docker compose ou dotnet run),
                                                # cadastra o CheckinPoint 609 se faltar
@@ -352,6 +352,26 @@ o Swagger (`/api/simulate/wellhub/*` — ver seção "Testes" no topo do README)
    registros no nosso Mongo local (checkin point "Sandbox Wellhub (609)", alunos e check-ins de
    teste, e tenants de teste do cadastro autosserviço tipo "Academia Playwright") — não custa nada
    real (é Sandbox/Stripe teste), mas avise se quiser que eu limpe o banco local.
+
+## Webhook de saída (OmniClub → sistema do clube)
+
+Cada check-in **aprovado** gera um evento `checkin.aprovado` enviado para a URL configurada pelo
+tenant em **Webhook** no painel (`/webhook`; API em `/api/settings/webhook`). Sem URL configurada,
+nada é enviado. Implementado em `OutboundWebhookService` (fila `outbound_webhook_deliveries` no
+Mongo, enviada por `OutboundWebhookHostedService` a cada 5 s, fora do processamento do check-in).
+
+- **Requisição**: `POST` JSON, headers `X-Omniclub-Signature: sha256=<hex minúsculo>` (HMAC-SHA256
+  do corpo cru com o segredo do tenant), `X-Omniclub-Event` e `X-Omniclub-Delivery`.
+- **Corpo**: `id` (id do check-in, igual em todo reenvio), `tipo`, `atletaEmail`, `ocorridoEm`
+  (ISO 8601, fuso de São Paulo), `origem`, `valorRepasse` (valor por check-in da unidade, 2 casas,
+  `null` se não configurado), `wellhubId`, `atletaNome`, `atletaTelefone`, `unidade { gymId, nome }`.
+- **Entrega**: qualquer 2xx em até 10 s. Senão reenvia em 1 min, 5 min, 30 min, 2 h e 6 h (6
+  tentativas); depois fica "Falhou" até alguém clicar em "Reenviar" no painel.
+- **Teste**: o botão "Enviar evento de teste" manda `tipo: webhook.teste` com dados fictícios —
+  o destino deve responder 2xx e ignorar.
+
+Testado em 2026-10-16 contra um receptor que valida a assinatura de forma independente (Python
+`hmac`), com check-ins reais do Sandbox 609: entrega, falha 503 → reenvio agendado, e reenvio manual.
 
 ## Cobrança / Stripe (✅ cadastro + checkout confirmados de ponta a ponta, webhook pendente)
 

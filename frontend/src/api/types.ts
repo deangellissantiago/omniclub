@@ -271,3 +271,35 @@ export interface SchoolRankingReport {
   periodEnd: string;
   items: SchoolRankingItem[];
 }
+
+/** Webhook de saída do OmniClub (avisa o sistema do clube a cada check-in aprovado). */
+export interface OutboundWebhookSettings {
+  url?: string | null;
+  secret?: string | null;
+  enabled: boolean;
+}
+
+export type OutboundWebhookStatus = "Pending" | "Delivered" | "Failed";
+
+export interface OutboundWebhookDelivery {
+  id: string;
+  eventId: string;
+  eventType: string;
+  summary?: string | null;
+  status: OutboundWebhookStatus;
+  attempts: number;
+  createdAt: string;
+  lastAttemptAt?: string | null;
+  nextAttemptAt?: string | null;
+  deliveredAt?: string | null;
+  lastStatusCode?: number | null;
+  lastError?: string | null;
+}
+
+export interface OutboundWebhookTestResult {
+  success: boolean;
+  statusCode?: number | null;
+  error?: string | null;
+  payload: string;
+  signature: string;
+}

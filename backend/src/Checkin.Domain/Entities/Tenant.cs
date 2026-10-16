@@ -31,4 +31,12 @@ public class Tenant
     /// ver RetentionAlertService). Sem tela de configuração ainda: defina direto na coleção
     /// `tenants` do Mongo, mesmo caminho já usado para resetar senha de admin (ver README).</summary>
     public string? AlertsWhatsAppPhone { get; set; }
+
+    /// <summary>URL que recebe os eventos do OmniClub (webhook de saída — ver
+    /// OutboundWebhookService), ex.: o sistema de gestão do próprio clube. Nulo = não envia nada.</summary>
+    public string? OutboundWebhookUrl { get; set; }
+
+    /// <summary>Segredo compartilhado com o destino para assinar cada envio (HMAC-SHA256 no header
+    /// X-Omniclub-Signature). Só é usado junto com <see cref="OutboundWebhookUrl"/>.</summary>
+    public string? OutboundWebhookSecret { get; set; }
 }

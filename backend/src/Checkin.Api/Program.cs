@@ -1,9 +1,11 @@
 using System.Text;
 using Checkin.Api.BackgroundJobs;
+using Checkin.Api.Integrations;
 using Checkin.Api.Middleware;
 using Checkin.Api.Security;
 using Checkin.Api.Seed;
 using Checkin.Application.Ports;
+using Checkin.Application.Ports.Integrations;
 using Checkin.Application.Ports.Security;
 using Checkin.Application.UseCases.Auth;
 using Checkin.Application.UseCases.Billing;
@@ -99,6 +101,9 @@ builder.Services.AddHostedService<RetentionAlertHostedService>();
 builder.Services.AddScoped<WebhookProcessingService>();
 builder.Services.AddSingleton<IWebhookEventSignal, ChannelWebhookEventSignal>();
 builder.Services.AddHostedService<WebhookProcessingHostedService>();
+builder.Services.AddScoped<OutboundWebhookService>();
+builder.Services.AddHttpClient<IOutboundWebhookSender, HttpOutboundWebhookSender>(c => c.Timeout = HttpOutboundWebhookSender.Timeout);
+builder.Services.AddHostedService<OutboundWebhookHostedService>();
 
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Jwt:Secret não configurado.");

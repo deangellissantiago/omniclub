@@ -25,6 +25,7 @@ public static class MongoClassMaps
         RegisterMap<WellhubClass>();
         RegisterMap<Booking>();
         RegisterMap<WebhookEvent>();
+        RegisterMap<OutboundWebhookDelivery>();
 
         // ClassSlot.AvailableSpots é calculado (Capacity - BookedCount), não um campo próprio —
         // não pode passar por RegisterMap<T> genérico porque precisa de UnmapProperty.
