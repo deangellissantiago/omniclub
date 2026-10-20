@@ -203,4 +203,48 @@ public class OutboundWebhookServiceTests
 
         Assert.Single(_deliveries.Deliveries);
     }
+
+    [Fact]
+    public async Task RetryMany_requeues_selected_deliveries_of_the_tenant_only()
+    {
+        OutboundWebhookDelivery Failed(string tenant) => new()
+        {
+            TenantId = tenant, EventId = Guid.NewGuid().ToString(), EventType = "checkin.aprovado", Payload = "{}",
+            Status = OutboundWebhookStatus.Failed, Attempts = OutboundWebhookService.MaxAttempts, LastError = "HTTP 500"
+        };
+        var mine1 = Failed(TenantId);
+        var mine2 = Failed(TenantId);
+        var notSelected = Failed(TenantId);
+        var otherTenant = Failed("outro-tenant");
+        _deliveries.Deliveries.AddRange(new[] { mine1, mine2, notSelected, otherTenant });
+
+        var requeued = await BuildService().RetryManyAsync(new[] { mine1.Id, mine2.Id, mine2.Id, otherTenant.Id, "nao-existe" });
+
+        Assert.Equal(2, requeued);
+        foreach (var d in new[] { mine1, mine2 })
+        {
+            Assert.Equal(OutboundWebhookStatus.Pending, d.Status);
+            Assert.Equal(0, d.Attempts);
+            Assert.Null(d.NextAttemptAt);
+        }
+        Assert.Equal(OutboundWebhookStatus.Failed, notSelected.Status);
+        Assert.Equal(OutboundWebhookStatus.Failed, otherTenant.Status);
+    }
+
+    [Fact]
+    public async Task RetryMany_requires_at_least_one_id()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => BuildService().RetryManyAsync(Array.Empty<string>()));
+    }
+
+    [Fact]
+    public async Task ListDeliveries_filters_by_status()
+    {
+        _deliveries.Deliveries.Add(new OutboundWebhookDelivery { TenantId = TenantId, Status = OutboundWebhookStatus.Failed });
+        _deliveries.Deliveries.Add(new OutboundWebhookDelivery { TenantId = TenantId, Status = OutboundWebhookStatus.Delivered });
+
+        var failed = await BuildService().ListDeliveriesAsync(OutboundWebhookStatus.Failed);
+
+        Assert.Equal(OutboundWebhookStatus.Failed, Assert.Single(failed).Status);
+    }
 }

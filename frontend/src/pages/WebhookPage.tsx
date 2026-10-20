@@ -3,6 +3,7 @@ import {
   getWebhookSettings,
   listWebhookDeliveries,
   regenerateWebhookSecret,
+  retryWebhookDeliveries,
   retryWebhookDelivery,
   sendWebhookTest,
   updateWebhookSettings,
@@ -16,6 +17,13 @@ const STATUS: Record<OutboundWebhookStatus, { label: string; tone: string }> = {
   Pending: { label: "Aguardando reenvio", tone: "pending" },
   Failed: { label: "Falhou", tone: "rejected" },
 };
+
+const FILTERS: { value: OutboundWebhookStatus | ""; label: string }[] = [
+  { value: "", label: "Todos" },
+  { value: "Failed", label: "Falharam" },
+  { value: "Pending", label: "Aguardando" },
+  { value: "Delivered", label: "Entregues" },
+];
 
 const EXAMPLE_PAYLOAD = `{
   "id": "3f6c1e2a-…",
@@ -39,6 +47,8 @@ export function WebhookPage() {
   const [url, setUrl] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [deliveries, setDeliveries] = useState<OutboundWebhookDelivery[]>([]);
+  const [filter, setFilter] = useState<OutboundWebhookStatus | "">("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,14 +58,41 @@ export function WebhookPage() {
     setUrl(s.url ?? "");
   }
 
-  async function refreshDeliveries() {
-    setDeliveries(await listWebhookDeliveries());
+  async function refreshDeliveries(status: OutboundWebhookStatus | "" = filter) {
+    const list = await listWebhookDeliveries(status || undefined);
+    setDeliveries(list);
+    // Mantém selecionado só o que continua visível na lista.
+    const visible = new Set(list.map((d) => d.id));
+    setSelected((prev) => new Set([...prev].filter((id) => visible.has(id))));
   }
 
   useEffect(() => {
-    Promise.all([getWebhookSettings().then(applySettings), refreshDeliveries()])
-      .catch((err) => setError(extractErrorMessage(err)));
+    getWebhookSettings().then(applySettings).catch((err) => setError(extractErrorMessage(err)));
   }, []);
+
+  useEffect(() => {
+    listWebhookDeliveries(filter || undefined)
+      .then((list) => {
+        setDeliveries(list);
+        setSelected(new Set());
+      })
+      .catch((err) => setError(extractErrorMessage(err)));
+  }, [filter]);
+
+  const allSelected = deliveries.length > 0 && deliveries.every((d) => selected.has(d.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(deliveries.map((d) => d.id)));
+  }
 
   async function run(action: () => Promise<void>) {
     setError(null);
@@ -118,7 +155,26 @@ export function WebhookPage() {
     run(async () => {
       await retryWebhookDelivery(id);
       await refreshDeliveries();
-      setNotice("Reenvio agendado — sai em alguns segundos.");
+      setNotice("Reenvio agendado — sai em alguns segundos. Clique em Atualizar para ver o resultado.");
+    });
+  }
+
+  function handleRetrySelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    const delivered = deliveries.filter((d) => selected.has(d.id) && d.status === "Delivered").length;
+    const message =
+      `Reenviar ${ids.length} envio(s) selecionado(s)?` +
+      (delivered > 0
+        ? `\n\n${delivered} já tinha(m) sido entregue(s). Eles vão de novo com o mesmo id — o sistema que recebe pode tratá-los como duplicados e ignorar.`
+        : "");
+    if (!confirm(message)) return;
+
+    run(async () => {
+      const requeued = await retryWebhookDeliveries(ids);
+      setSelected(new Set());
+      await refreshDeliveries();
+      setNotice(`${requeued} envio(s) voltaram para a fila e saem em alguns segundos. Clique em Atualizar para ver o resultado.`);
     });
   }
 
@@ -181,11 +237,32 @@ export function WebhookPage() {
       <section className="panel panel-table">
         <div className="panel-toolbar">
           <h2>Envios recentes</h2>
-          <button className="btn-ghost" disabled={busy} onClick={() => run(refreshDeliveries)}>Atualizar</button>
+          <div className="toolbar-actions">
+            <button className="btn-primary" disabled={busy || selected.size === 0} onClick={handleRetrySelected}>
+              Reenviar selecionados{selected.size > 0 ? ` (${selected.size})` : ""}
+            </button>
+            <button className="btn-ghost" disabled={busy} onClick={() => run(() => refreshDeliveries())}>Atualizar</button>
+          </div>
+        </div>
+        <div className="tabs" style={{ margin: "0 1.5rem 0.75rem" }}>
+          {FILTERS.map((f) => (
+            <button key={f.value || "all"} className={`tab${filter === f.value ? " active" : ""}`} onClick={() => setFilter(f.value)}>
+              {f.label}
+            </button>
+          ))}
         </div>
         <table className="data-table">
           <thead>
             <tr>
+              <th className="check-cell">
+                <input
+                  type="checkbox"
+                  aria-label="Selecionar todos"
+                  checked={allSelected}
+                  disabled={deliveries.length === 0}
+                  onChange={toggleAll}
+                />
+              </th>
               <th>Data</th>
               <th>Evento</th>
               <th>Status</th>
@@ -197,13 +274,16 @@ export function WebhookPage() {
           <tbody>
             {deliveries.length === 0 && (
               <TableEmpty
-                colSpan={6}
-                title="Nenhum envio ainda"
-                hint="Com o webhook ativo, cada check-in aprovado aparece aqui."
+                colSpan={7}
+                title={filter ? "Nenhum envio com esse status" : "Nenhum envio ainda"}
+                hint={filter ? "Escolha outro filtro acima." : "Com o webhook ativo, cada check-in aprovado aparece aqui."}
               />
             )}
             {deliveries.map((d) => (
-              <tr key={d.id}>
+              <tr key={d.id} className={selected.has(d.id) ? "row-selected" : undefined}>
+                <td className="check-cell">
+                  <input type="checkbox" aria-label="Selecionar envio" checked={selected.has(d.id)} onChange={() => toggle(d.id)} />
+                </td>
                 <td>{formatDateTime(d.createdAt)}</td>
                 <td>
                   <span className="cell-strong">{d.summary ?? d.eventType}</span>

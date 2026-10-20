@@ -21,4 +21,8 @@ public record OutboundWebhookDeliveryDto(
     int? LastStatusCode,
     string? LastError);
 
+public record RetryOutboundWebhooksRequest(IReadOnlyList<string> Ids);
+
+public record RetryOutboundWebhooksResultDto(int Requeued);
+
 public record OutboundWebhookTestResultDto(bool Success, int? StatusCode, string? Error, string Payload, string Signature);

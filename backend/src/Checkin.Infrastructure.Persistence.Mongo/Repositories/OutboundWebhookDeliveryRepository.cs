@@ -36,10 +36,23 @@ public class OutboundWebhookDeliveryRepository : IOutboundWebhookDeliveryReposit
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<OutboundWebhookDelivery>> ListRecentAsync(string tenantId, int maxCount, CancellationToken ct = default) =>
-        await _context.OutboundWebhookDeliveries.Find(d => d.TenantId == tenantId)
+    public async Task<IReadOnlyList<OutboundWebhookDelivery>> ListRecentAsync(
+        string tenantId, int maxCount, OutboundWebhookStatus? status = null, CancellationToken ct = default)
+    {
+        var builder = Builders<OutboundWebhookDelivery>.Filter;
+        var filter = builder.Eq(d => d.TenantId, tenantId);
+        if (status.HasValue) filter &= builder.Eq(d => d.Status, status.Value);
+
+        return await _context.OutboundWebhookDeliveries.Find(filter)
             .SortByDescending(d => d.CreatedAt)
             .Limit(maxCount)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<OutboundWebhookDelivery>> ListByIdsAsync(string tenantId, IReadOnlyCollection<string> ids, CancellationToken ct = default) =>
+        await _context.OutboundWebhookDeliveries
+            .Find(Builders<OutboundWebhookDelivery>.Filter.Eq(d => d.TenantId, tenantId)
+                  & Builders<OutboundWebhookDelivery>.Filter.In(d => d.Id, ids))
             .ToListAsync(ct);
 
     public async Task<bool> UpdateAsync(OutboundWebhookDelivery delivery, CancellationToken ct = default)

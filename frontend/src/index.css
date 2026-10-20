@@ -618,6 +618,10 @@ input, select { font-family: var(--font-ui); }
   margin: 0 0 1.2rem;
 }
 
+.toolbar-actions { display: flex; gap: 0.6rem; align-items: center; }
+.data-table .check-cell { width: 1%; padding-right: 0; }
+.check-cell input { width: 16px; height: 16px; accent-color: var(--blue-600); cursor: pointer; vertical-align: middle; }
+
 .secret-row { display: flex; gap: 0.5rem; align-items: stretch; }
 .secret-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem !important; }
 

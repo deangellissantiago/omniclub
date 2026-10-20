@@ -25,9 +25,14 @@ public class FakeOutboundWebhookDeliveryRepository : IOutboundWebhookDeliveryRep
             .Where(d => d.Status == OutboundWebhookStatus.Pending && (d.NextAttemptAt is null || d.NextAttemptAt <= DateTime.UtcNow))
             .OrderBy(d => d.CreatedAt).Take(maxCount).ToList());
 
-    public Task<IReadOnlyList<OutboundWebhookDelivery>> ListRecentAsync(string tenantId, int maxCount, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<OutboundWebhookDelivery>> ListRecentAsync(
+        string tenantId, int maxCount, OutboundWebhookStatus? status = null, CancellationToken ct = default) =>
         Task.FromResult((IReadOnlyList<OutboundWebhookDelivery>)Deliveries
-            .Where(d => d.TenantId == tenantId).OrderByDescending(d => d.CreatedAt).Take(maxCount).ToList());
+            .Where(d => d.TenantId == tenantId && (status == null || d.Status == status))
+            .OrderByDescending(d => d.CreatedAt).Take(maxCount).ToList());
+
+    public Task<IReadOnlyList<OutboundWebhookDelivery>> ListByIdsAsync(string tenantId, IReadOnlyCollection<string> ids, CancellationToken ct = default) =>
+        Task.FromResult((IReadOnlyList<OutboundWebhookDelivery>)Deliveries.Where(d => d.TenantId == tenantId && ids.Contains(d.Id)).ToList());
 
     public Task<bool> UpdateAsync(OutboundWebhookDelivery delivery, CancellationToken ct = default) => Task.FromResult(true);
 }

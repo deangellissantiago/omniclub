@@ -1,5 +1,6 @@
 using Checkin.Application.DTOs.Webhooks;
 using Checkin.Application.UseCases.Webhooks;
+using Checkin.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,8 +34,14 @@ public class OutboundWebhookController : ControllerBase
         Ok(await _service.SendTestAsync(ct));
 
     [HttpGet("deliveries")]
-    public async Task<ActionResult<IReadOnlyList<OutboundWebhookDeliveryDto>>> ListDeliveries(CancellationToken ct) =>
-        Ok(await _service.ListDeliveriesAsync(ct: ct));
+    public async Task<ActionResult<IReadOnlyList<OutboundWebhookDeliveryDto>>> ListDeliveries(
+        [FromQuery] OutboundWebhookStatus? status, CancellationToken ct) =>
+        Ok(await _service.ListDeliveriesAsync(status, ct: ct));
+
+    /// <summary>Reenvio em lote dos envios selecionados no painel.</summary>
+    [HttpPost("deliveries/retry")]
+    public async Task<ActionResult<RetryOutboundWebhooksResultDto>> RetryMany(RetryOutboundWebhooksRequest request, CancellationToken ct) =>
+        Ok(new RetryOutboundWebhooksResultDto(await _service.RetryManyAsync(request.Ids ?? Array.Empty<string>(), ct)));
 
     [HttpPost("deliveries/{id}/retry")]
     public async Task<ActionResult<OutboundWebhookDeliveryDto>> Retry(string id, CancellationToken ct) =>

@@ -96,7 +96,7 @@ npm run dev
 
 ## Testes
 
-- **Backend**: `cd backend && dotnet test` — 122 testes (unit) cobrindo os casos de uso de
+- **Backend**: `cd backend && dotnet test` — 125 testes (unit) cobrindo os casos de uso de
   Check-in/Booking/Billing/Auth, os gateways Wellhub/Stripe e o `SimulationController` (ver
   "Integração Wellhub"/"Cobrança / Stripe" abaixo).
 - **Backend (E2E do Swagger)**: `cd backend/e2e && npm install && npm test` — Playwright dirige o
@@ -319,7 +319,7 @@ padrão da Access Control API, e errado em vários pontos — todos corrigidos:
 
 ```bash
 cd backend
-dotnet test                                   # 122 testes: Checkin/Booking services, WellhubSignature, gateways
+dotnet test                                   # 125 testes: Checkin/Booking services, WellhubSignature, gateways
 ./scripts/simulate-wellhub-checkin.sh         # end-to-end local: assina e envia um check-in de teste
                                                # para a API rodando (docker compose ou dotnet run),
                                                # cadastra o CheckinPoint 609 se faltar
@@ -366,7 +366,12 @@ Mongo, enviada por `OutboundWebhookHostedService` a cada 5 s, fora do processame
   (ISO 8601, fuso de São Paulo), `origem`, `valorRepasse` (valor por check-in da unidade, 2 casas,
   `null` se não configurado), `wellhubId`, `atletaNome`, `atletaTelefone`, `unidade { gymId, nome }`.
 - **Entrega**: qualquer 2xx em até 10 s. Senão reenvia em 1 min, 5 min, 30 min, 2 h e 6 h (6
-  tentativas); depois fica "Falhou" até alguém clicar em "Reenviar" no painel.
+  tentativas); depois fica "Falhou" até o admin reenviar pelo painel.
+- **Reenvio manual**: no log de envios, filtro por status (Todos / Falharam / Aguardando /
+  Entregues) e seleção múltipla → "Reenviar selecionados" (`POST
+  /api/settings/webhook/deliveries/retry` com `{ "ids": [...] }`, até 200 por vez). Os
+  selecionados voltam pra fila com as tentativas zeradas e saem em alguns segundos, com o mesmo
+  corpo e `id`; ids de outro tenant são ignorados.
 - **Teste**: o botão "Enviar evento de teste" manda `tipo: webhook.teste` com dados fictícios —
   o destino deve responder 2xx e ignorar.
 

@@ -241,20 +241,50 @@ public class OutboundWebhookService
         return new OutboundWebhookTestResultDto(result.Success, result.StatusCode, result.Error, payload, signature);
     }
 
-    public async Task<IReadOnlyList<OutboundWebhookDeliveryDto>> ListDeliveriesAsync(int maxCount = 50, CancellationToken ct = default) =>
-        (await _deliveries.ListRecentAsync(_tenantContext.TenantId, maxCount, ct)).Select(ToDeliveryDto).ToList();
+    /// <summary>Limite do reenvio em lote — o painel nunca lista mais do que isso de uma vez.</summary>
+    public const int MaxRetryBatch = 200;
 
-    /// <summary>Reenvio manual (botão no painel) — volta pra fila com as tentativas zeradas.</summary>
+    public async Task<IReadOnlyList<OutboundWebhookDeliveryDto>> ListDeliveriesAsync(
+        OutboundWebhookStatus? status = null, int maxCount = MaxRetryBatch, CancellationToken ct = default) =>
+        (await _deliveries.ListRecentAsync(_tenantContext.TenantId, Math.Clamp(maxCount, 1, MaxRetryBatch), status, ct))
+            .Select(ToDeliveryDto).ToList();
+
+    /// <summary>Reenvio manual de um envio (botão na linha) — ver <see cref="RetryManyAsync"/>.</summary>
     public async Task<OutboundWebhookDeliveryDto> RetryAsync(string deliveryId, CancellationToken ct = default)
     {
         var delivery = await _deliveries.GetByIdAsync(_tenantContext.TenantId, deliveryId, ct)
             ?? throw new Exceptions.NotFoundException($"Envio '{deliveryId}' não encontrado.");
 
+        await RequeueAsync(delivery, ct);
+        return ToDeliveryDto(delivery);
+    }
+
+    /// <summary>Reenvio manual dos envios selecionados no painel: voltam pra fila com as
+    /// tentativas zeradas e saem no próximo ciclo do worker (alguns segundos), com o mesmo corpo e
+    /// o mesmo <c>id</c> — inclusive os já entregues, se o admin escolher (o destino deduplica pelo
+    /// id). Ids de outro tenant ou inexistentes são ignorados; retorna quantos foram reagendados.</summary>
+    public async Task<int> RetryManyAsync(IReadOnlyCollection<string> deliveryIds, CancellationToken ct = default)
+    {
+        var ids = deliveryIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+        if (ids.Count == 0)
+            throw new ArgumentException("Selecione pelo menos um envio para reenviar.");
+        if (ids.Count > MaxRetryBatch)
+            throw new ArgumentException($"Selecione no máximo {MaxRetryBatch} envios por vez.");
+
+        var deliveries = await _deliveries.ListByIdsAsync(_tenantContext.TenantId, ids, ct);
+        foreach (var delivery in deliveries)
+        {
+            await RequeueAsync(delivery, ct);
+        }
+        return deliveries.Count;
+    }
+
+    private async Task RequeueAsync(OutboundWebhookDelivery delivery, CancellationToken ct)
+    {
         delivery.Status = OutboundWebhookStatus.Pending;
         delivery.Attempts = 0;
         delivery.NextAttemptAt = null;
         await _deliveries.UpdateAsync(delivery, ct);
-        return ToDeliveryDto(delivery);
     }
 
     // ---- Helpers ----------------------------------------------------------------------------

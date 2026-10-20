@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { OutboundWebhookDelivery, OutboundWebhookSettings, OutboundWebhookTestResult } from "./types";
+import type { OutboundWebhookDelivery, OutboundWebhookSettings, OutboundWebhookStatus, OutboundWebhookTestResult } from "./types";
 
 export async function getWebhookSettings(): Promise<OutboundWebhookSettings> {
   const { data } = await apiClient.get<OutboundWebhookSettings>("/settings/webhook");
@@ -22,9 +22,15 @@ export async function sendWebhookTest(): Promise<OutboundWebhookTestResult> {
   return data;
 }
 
-export async function listWebhookDeliveries(): Promise<OutboundWebhookDelivery[]> {
-  const { data } = await apiClient.get<OutboundWebhookDelivery[]>("/settings/webhook/deliveries");
+export async function listWebhookDeliveries(status?: OutboundWebhookStatus): Promise<OutboundWebhookDelivery[]> {
+  const { data } = await apiClient.get<OutboundWebhookDelivery[]>("/settings/webhook/deliveries", { params: { status } });
   return data;
+}
+
+/** Reenvio em lote dos envios selecionados; retorna quantos voltaram pra fila. */
+export async function retryWebhookDeliveries(ids: string[]): Promise<number> {
+  const { data } = await apiClient.post<{ requeued: number }>("/settings/webhook/deliveries/retry", { ids });
+  return data.requeued;
 }
 
 export async function retryWebhookDelivery(id: string): Promise<OutboundWebhookDelivery> {
