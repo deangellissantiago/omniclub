@@ -115,8 +115,9 @@ base).
 
 Note que `VITE_API_URL` **não** entra neste `.env`: diferente do
 clubedotenis, o frontend deste projeto não tem substituição em runtime —
-`VITE_API_URL` já vem inlinada na imagem publicada pelo CI (padrão
-`https://omniclub.run/api`, ver `.github/workflows/build-images.yml`). Se
+`VITE_API_URL` já vem inlinada na imagem publicada pelo CI (padrão relativo
+`/api` — o nginx do container repassa ao backend, então funciona com e sem
+`www` sem depender de CORS; ver `.github/workflows/build-images.yml`). Se
 precisar mudar isso, é preciso rebuildar a imagem (variável de repositório
 `VITE_API_URL` no GitHub, não `.env` da VPS).
 

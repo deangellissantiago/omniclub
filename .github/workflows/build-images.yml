@@ -96,11 +96,15 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # VITE_API_URL é inlinada no JS em tempo de build (não há
-          # substituição em runtime neste projeto) — usa o domínio de
-          # produção por padrão; sobrescreva criando uma variável de
-          # repositório VITE_API_URL (Settings > Secrets and variables >
-          # Actions > Variables) se precisar apontar para outro lugar.
+          # substituição em runtime neste projeto). Padrão relativo "/api":
+          # o nginx do próprio container já repassa /api/ ao backend, então
+          # a API fica sempre na mesma origem da página — funciona igual em
+          # omniclub.run e www.omniclub.run, sem depender de CORS (com a URL
+          # absoluta, abrir o site pelo www quebrava o login). Sobrescreva
+          # criando uma variável de repositório VITE_API_URL (Settings >
+          # Secrets and variables > Actions > Variables) só se a API for
+          # para outro domínio.
           build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL || 'https://omniclub.run/api' }}
+            VITE_API_URL=${{ vars.VITE_API_URL || '/api' }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
