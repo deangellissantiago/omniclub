@@ -323,6 +323,11 @@ export function CheckinPointsPage() {
                       ) : (
                         <span className="badge badge-pending"><span className="dot" />Não conectado</span>
                       )}
+                      {p.totalPass.connectedAt && (
+                        <span className={p.totalPass.bookingsConnectedAt ? "muted" : "warning-text"}>
+                          Reservas: {p.totalPass.bookingsConnectedAt ? "conectadas" : "não conectadas — clique em Reconectar"}
+                        </span>
+                      )}
                       <span className="muted">{formatMoneyCents(p.totalPass.pricePerCheckinCents)} por check-in</span>
                       <button type="button" className="btn-link" disabled={busyId === p.id} onClick={() => handleConnectTotalPass(p)}>
                         {busyId === p.id ? "Conectando..." : p.totalPass.connectedAt ? "Reconectar" : "Conectar ao TotalPass"}

@@ -3,7 +3,7 @@ import { listBookings } from "../api/bookings";
 import type { BookingListItem } from "../api/types";
 import { extractErrorMessage } from "../api/client";
 import { DateRangeFilter } from "../components/DateRangeFilter";
-import { Avatar, BookingStatusBadge, TableEmpty } from "../components/ui";
+import { AppBadge, Avatar, BookingStatusBadge, TableEmpty } from "../components/ui";
 
 function formatDateTime(value?: string | null): string {
   return value ? new Date(value).toLocaleString("pt-BR") : "-";
@@ -26,7 +26,7 @@ export function BookingsPage() {
       <div className="page-header">
         <h1>Reservas</h1>
         <p className="muted">
-          Reservas feitas pelo app Wellhub nas aulas da sua agenda — confirmadas automaticamente enquanto houver vaga.
+          Reservas feitas pelo Wellhub e pelo TotalPass nas aulas da sua agenda — confirmadas automaticamente enquanto houver vaga.
         </p>
       </div>
 
@@ -39,6 +39,7 @@ export function BookingsPage() {
           <thead>
             <tr>
               <th>Aluno</th>
+              <th>App</th>
               <th>Aula</th>
               <th>Unidade</th>
               <th>Horário da aula</th>
@@ -49,9 +50,9 @@ export function BookingsPage() {
           <tbody>
             {bookings.length === 0 && (
               <TableEmpty
-                colSpan={6}
+                colSpan={7}
                 title="Nenhuma reserva encontrada para o período"
-                hint="Cadastre horários em Agenda de aulas para os alunos poderem reservar pelo Wellhub."
+                hint="Cadastre horários em Agenda de aulas para os alunos poderem reservar pelos apps."
               />
             )}
             {bookings.map((b) => (
@@ -59,9 +60,10 @@ export function BookingsPage() {
                 <td>
                   <span className="cell-person">
                     <Avatar name={b.studentName} small />
-                    <span className="cell-strong">{b.studentName ?? `Wellhub ${b.gympassId}`}</span>
+                    <span className="cell-strong">{b.studentName ?? `${b.app} ${b.gympassId}`}</span>
                   </span>
                 </td>
+                <td><AppBadge app={b.app} /></td>
                 <td>{b.className ?? "-"}</td>
                 <td>{b.checkinPointName ?? "-"}</td>
                 <td>{formatDateTime(b.slotStartsAt)}</td>

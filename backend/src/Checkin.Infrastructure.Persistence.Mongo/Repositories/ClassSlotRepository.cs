@@ -16,6 +16,9 @@ public class ClassSlotRepository : IClassSlotRepository
     public async Task<ClassSlot?> GetByExternalIdAsync(string externalId, CancellationToken ct = default) =>
         await _context.ClassSlots.Find(s => s.ExternalId == externalId).FirstOrDefaultAsync(ct);
 
+    public async Task<ClassSlot?> GetByTotalPassEventIdAsync(string tenantId, string totalPassEventId, CancellationToken ct = default) =>
+        await _context.ClassSlots.Find(s => s.TenantId == tenantId && s.TotalPassEventId == totalPassEventId).FirstOrDefaultAsync(ct);
+
     public async Task<IReadOnlyList<ClassSlot>> ListByClassAsync(string tenantId, string classId, CancellationToken ct = default) =>
         await _context.ClassSlots.Find(s => s.TenantId == tenantId && s.ClassId == classId).SortBy(s => s.StartsAt).ToListAsync(ct);
 

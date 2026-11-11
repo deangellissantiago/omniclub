@@ -26,11 +26,19 @@ public record BookingListItemDto(
     string? ClassName,
     string? CheckinPointId,
     string? CheckinPointName,
-    DateTime? SlotStartsAt);
+    DateTime? SlotStartsAt,
+    IntegrationApp App = IntegrationApp.Wellhub);
 
-public record ClassDto(string Id, string CheckinPointId, string Name, string? Description, long ProductId, string? ExternalId, bool Active);
+public record ClassDto(
+    string Id, string CheckinPointId, string Name, string? Description, long ProductId, string? ExternalId, bool Active,
+    bool PublishWellhub = true, bool PublishTotalPass = false, long? TotalPassPlanId = null, string? Instructor = null);
 
-public record ClassSlotDto(string Id, string ClassId, DateTime StartsAt, DateTime EndsAt, int Capacity, int BookedCount, string? ExternalId);
+/// <summary>Campos sem prefixo = Wellhub; <c>TotalPass*</c> = TotalPass.</summary>
+public record ClassSlotDto(
+    string Id, string ClassId, DateTime StartsAt, DateTime EndsAt, int Capacity, int BookedCount, string? ExternalId,
+    int TotalPassCapacity = 0, int TotalPassBookedCount = 0, string? TotalPassOccurrenceUuid = null);
+
+public record TotalPassPlanDto(long Id, string Name, string? Code);
 
 /// <summary>Produto (plano/tipo de acesso) configurado para uma unidade no Wellhub — ver
 /// IWellhubBookingGateway.ListProductsAsync (GET /setup/v1/gyms/:gym_id/products).</summary>

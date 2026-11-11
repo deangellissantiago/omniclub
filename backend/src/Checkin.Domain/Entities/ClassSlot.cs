@@ -21,6 +21,22 @@ public class ClassSlot
     /// confirma a criação do lado deles.</summary>
     public string? ExternalId { get; set; }
 
+    // ---- TotalPass (ocorrência avulsa — POST /partner/event-occurrence) ----------------
+
+    /// <summary>Vagas oferecidas ao TotalPass neste horário (separadas das do Wellhub,
+    /// <see cref="Capacity"/>). No TotalPass só podem aumentar depois de publicadas.</summary>
+    public int TotalPassCapacity { get; set; }
+
+    /// <summary>Reservas TotalPass ativas — contadas a partir do webhook de reservas.</summary>
+    public int TotalPassBookedCount { get; set; }
+
+    /// <summary>Id do evento no TotalPass (vem em <c>event.id</c> no webhook de reserva — é por ele
+    /// que a reserva é ligada a este horário).</summary>
+    public string? TotalPassEventId { get; set; }
+
+    /// <summary>occurrenceUuid no TotalPass. Nulo = ainda não publicado lá.</summary>
+    public string? TotalPassOccurrenceUuid { get; set; }
+
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

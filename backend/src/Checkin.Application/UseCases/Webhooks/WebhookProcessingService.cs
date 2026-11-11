@@ -1,8 +1,10 @@
 using System.Text.Json;
+using Checkin.Application.DTOs.Bookings;
 using Checkin.Application.DTOs.Checkins;
 using Checkin.Application.Ports.Repositories;
 using Checkin.Application.UseCases.Bookings;
 using Checkin.Application.UseCases.Checkins;
+using Checkin.Application.UseCases.Students;
 using Checkin.Domain.Entities;
 using Checkin.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -94,9 +96,13 @@ public class WebhookProcessingService
     public const string TotalPassProvider = "TotalPass";
     public const string TotalPassCheckinCreated = "CHECK_IN_CREATED";
 
+    /// <summary>Tipo fixo dado aos webhooks de reserva do TotalPass (o payload não tem tipo).</summary>
+    public const string TotalPassBooking = "BOOKING";
+
     private Task DispatchAsync(WebhookEvent evt, CancellationToken ct) => (evt.Provider, evt.EventType) switch
     {
         (TotalPassProvider, TotalPassCheckinCreated) => HandleTotalPassCheckinAsync(evt, ct),
+        (TotalPassProvider, TotalPassBooking) => HandleTotalPassBookingAsync(evt, ct),
         // Outros eventos do TotalPass (o único documentado hoje é CHECK_IN_CREATED): só confirma.
         (TotalPassProvider, _) => Task.CompletedTask,
         _ => DispatchWellhubAsync(evt, ct),
@@ -151,6 +157,40 @@ public class WebhookProcessingService
 
         await _checkinService.RegisterTotalPassCheckinAsync(evt.RouteKey, data, evt.RawPayload, ct);
     }
+
+    /// <summary>Payload (doc "Booking - New" > Subscribe): {"event":{"id","title","plan_code"},
+    /// "place":{...},"user":{name,email,phone,document_number,document_type,code},
+    /// "slot":{"id","status","date","seat","confirmation_url"}}. Lido com JsonDocument porque os
+    /// ids aparecem ora como número, ora como string nos exemplos.</summary>
+    private async Task HandleTotalPassBookingAsync(WebhookEvent evt, CancellationToken ct)
+    {
+        using var doc = JsonDocument.Parse(evt.RawPayload);
+        var root = doc.RootElement;
+        var eventId = ReadId(root, "event");
+        var slotId = ReadId(root, "slot");
+        if (evt.RouteKey is null || eventId is null || slotId is null)
+        {
+            _logger.LogWarning("Reserva TotalPass {Id} sem event.id/slot.id — ignorada.", evt.Id);
+            return;
+        }
+
+        string? Str(string parent, string name) =>
+            root.TryGetProperty(parent, out var p) && p.ValueKind == JsonValueKind.Object && p.TryGetProperty(name, out var v)
+                && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+        var data = new TotalPassBookingData(eventId, slotId, Str("slot", "status"),
+            new TotalPassUserInfo(Str("user", "code"), Str("user", "name"), Str("user", "email"), Str("user", "phone"),
+                Str("user", "document_number"), Str("user", "document_type")));
+
+        var result = await _bookingService.HandleTotalPassBookingAsync(evt.RouteKey, data, evt.RawPayload, ct);
+        if (result is null)
+            _logger.LogWarning("Reserva TotalPass {SlotId} para evento {EventId} que não foi criado pelo OmniClub — ignorada.", slotId, eventId);
+    }
+
+    private static string? ReadId(JsonElement root, string parent) =>
+        root.TryGetProperty(parent, out var p) && p.ValueKind == JsonValueKind.Object && p.TryGetProperty("id", out var id)
+            ? id.ValueKind switch { JsonValueKind.String => id.GetString(), JsonValueKind.Number => id.GetRawText(), _ => null }
+            : null;
 
     private async Task HandleBookingRequestedAsync(string rawBody, CancellationToken ct)
     {

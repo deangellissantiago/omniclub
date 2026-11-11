@@ -82,6 +82,8 @@ export interface TotalPassStatus {
   placeId?: string | null;
   /** Repasse do TotalPass por check-in, em centavos. */
   pricePerCheckinCents?: number | null;
+  /** Quando o webhook de reservas foi assinado (nulo = reservas do TotalPass não chegam). */
+  bookingsConnectedAt?: string | null;
 }
 
 export interface UpsertCheckinPoint {
@@ -181,6 +183,8 @@ export type BookingStatus = "Requested" | "Confirmed" | "Rejected" | "Canceled" 
 
 /** Categoria de aula sincronizada com a Booking API do Wellhub. `externalId` nulo = ainda não
  * existe do lado do Wellhub (criação falhou ou foi feita sem integração configurada). */
+/** Aula. Pode ser publicada no Wellhub (`productId`, `externalId` = categoria lá) e/ou no
+ * TotalPass (`totalPassPlanId`, `instructor`). */
 export interface WellhubClass {
   id: string;
   checkinPointId: string;
@@ -189,16 +193,30 @@ export interface WellhubClass {
   productId: number;
   externalId?: string | null;
   active: boolean;
+  publishWellhub: boolean;
+  publishTotalPass: boolean;
+  totalPassPlanId?: number | null;
+  instructor?: string | null;
 }
 
 export interface CreateClassRequest {
   checkinPointId: string;
   name: string;
   description?: string | null;
-  productId: number;
+  productId?: number | null;
+  publishWellhub: boolean;
+  publishTotalPass: boolean;
+  totalPassPlanId?: number | null;
+  instructor?: string | null;
 }
 
-/** Horário agendado de uma categoria — é o que o aluno reserva no app Wellhub. */
+export interface TotalPassPlan {
+  id: number;
+  name: string;
+  code?: string | null;
+}
+
+/** Horário. Campos sem prefixo = Wellhub; `totalPass*` = TotalPass (cada app tem suas vagas). */
 export interface ClassSlot {
   id: string;
   classId: string;
@@ -207,12 +225,18 @@ export interface ClassSlot {
   capacity: number;
   bookedCount: number;
   externalId?: string | null;
+  totalPassCapacity: number;
+  totalPassBookedCount: number;
+  totalPassOccurrenceUuid?: string | null;
 }
 
 export interface CreateSlotRequest {
   startsAt: string;
   endsAt: string;
+  /** Vagas Wellhub. */
   capacity: number;
+  /** Vagas TotalPass. */
+  totalPassCapacity: number;
 }
 
 export interface BookingListItem {
@@ -228,6 +252,7 @@ export interface BookingListItem {
   checkinPointId?: string | null;
   checkinPointName?: string | null;
   slotStartsAt?: string | null;
+  app: IntegrationApp;
 }
 
 export interface BookingStatusCount {

@@ -61,6 +61,10 @@ public class CheckinPoint
     /// conferência no painel.</summary>
     public string? TotalPassPlaceName { get; set; }
 
+    /// <summary>Quando o webhook de <b>reservas</b> foi assinado no TotalPass (também no botão
+    /// "Conectar"). Nulo = reservas do TotalPass ainda não chegam.</summary>
+    public DateTime? TotalPassBookingsConnectedAt { get; set; }
+
     /// <summary>Id da unidade no TotalPass (preenchido na conexão).</summary>
     public string? TotalPassPlaceId { get; set; }
 

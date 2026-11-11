@@ -24,4 +24,6 @@ public record TotalPassStatusDto(
     DateTime? ConnectedAt,
     string? PlaceName,
     string? PlaceId,
-    int? PricePerCheckinCents);
+    int? PricePerCheckinCents,
+    /// <summary>Quando o webhook de reservas foi assinado no TotalPass (nulo = reservas não chegam).</summary>
+    DateTime? BookingsConnectedAt = null);

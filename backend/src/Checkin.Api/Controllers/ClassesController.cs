@@ -46,7 +46,14 @@ public class ClassesController : ControllerBase
 
     [HttpPost("{classId}/slots")]
     public async Task<ActionResult<ClassSlotDto>> CreateSlot(string classId, CreateSlotBody body, CancellationToken ct) =>
-        Ok(await _bookingService.CreateSlotAsync(new CreateSlotRequest(classId, body.StartsAt, body.EndsAt, body.Capacity), ct));
+        Ok(await _bookingService.CreateSlotAsync(new CreateSlotRequest(classId, body.StartsAt, body.EndsAt, body.Capacity, body.TotalPassCapacity), ct));
 
-    public record CreateSlotBody(DateTime StartsAt, DateTime EndsAt, int Capacity);
+    /// <param name="Capacity">Vagas Wellhub.</param>
+    /// <param name="TotalPassCapacity">Vagas TotalPass.</param>
+    public record CreateSlotBody(DateTime StartsAt, DateTime EndsAt, int Capacity, int TotalPassCapacity = 0);
+
+    /// <summary>Planos TotalPass da unidade — um deles é obrigatório pra publicar aula no TotalPass.</summary>
+    [HttpGet("totalpass-plans/{checkinPointId}")]
+    public async Task<ActionResult<IReadOnlyList<TotalPassPlanDto>>> ListTotalPassPlans(string checkinPointId, CancellationToken ct) =>
+        Ok(await _bookingService.ListTotalPassPlansAsync(checkinPointId, ct));
 }

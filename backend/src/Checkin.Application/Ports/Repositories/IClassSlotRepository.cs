@@ -11,6 +11,9 @@ public interface IClassSlotRepository
     /// ICheckinPointRepository.GetByExternalIdAsync).</summary>
     Task<ClassSlot?> GetByExternalIdAsync(string externalId, CancellationToken ct = default);
 
+    /// <summary>Horário pelo id do evento no TotalPass, dentro do tenant (webhook de reserva).</summary>
+    Task<ClassSlot?> GetByTotalPassEventIdAsync(string tenantId, string totalPassEventId, CancellationToken ct = default);
+
     Task<IReadOnlyList<ClassSlot>> ListByClassAsync(string tenantId, string classId, CancellationToken ct = default);
     Task<ClassSlot> CreateAsync(ClassSlot slot, CancellationToken ct = default);
     Task<bool> UpdateAsync(ClassSlot slot, CancellationToken ct = default);

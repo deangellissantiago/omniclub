@@ -318,20 +318,9 @@ public class OutboundWebhookService
         return JsonSerializer.Serialize(payload, PayloadJson);
     }
 
-    private static readonly TimeZoneInfo SaoPaulo = FindSaoPaulo();
-
-    /// <summary>Brasil não tem horário de verão desde 2019 — se a imagem não tiver a base de fusos,
-    /// o fixo -03:00 dá o mesmo resultado.</summary>
-    private static TimeZoneInfo FindSaoPaulo()
-    {
-        try { return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"); }
-        catch (Exception) { return TimeZoneInfo.CreateCustomTimeZone("BRT", TimeSpan.FromHours(-3), "BRT", "BRT"); }
-    }
-
     private static DateTimeOffset ToSaoPaulo(DateTime utc)
     {
-        var asUtc = DateTime.SpecifyKind(utc, DateTimeKind.Utc);
-        var local = TimeZoneInfo.ConvertTime(new DateTimeOffset(asUtc), SaoPaulo);
+        var local = Common.SaoPauloTime.FromUtc(utc);
         return new DateTimeOffset(local.Ticks - local.Ticks % TimeSpan.TicksPerSecond, local.Offset); // sem frações de segundo
     }
 

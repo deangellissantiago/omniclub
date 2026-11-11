@@ -495,6 +495,7 @@ input, select { font-family: var(--font-ui); }
 .integration-block.on { border-color: var(--periwinkle); background: var(--blue-50); }
 .integration-block .integration-toggle { grid-column: 1 / -1; padding-bottom: 0 !important; color: var(--ink) !important; font-size: 0.9rem !important; font-weight: 600 !important; }
 .integration-block .integration-hint { grid-column: 1 / -1; margin: -0.3rem 0 0; font-size: 0.82rem; }
+.warning-text { color: var(--warning-text); font-size: 0.85rem; }
 .cell-stack { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
 
 .product-chips { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }

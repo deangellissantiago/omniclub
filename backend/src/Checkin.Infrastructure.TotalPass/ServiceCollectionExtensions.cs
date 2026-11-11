@@ -15,6 +15,8 @@ public static class ServiceCollectionExtensions
         // "confirmado". Ver TotalPassGatewayAdapter.ConfirmCheckinAsync.
         services.AddHttpClient<ITotalPassGateway, TotalPassGatewayAdapter>(c => c.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddHttpClient<ITotalPassBookingGateway, TotalPassBookingGatewayAdapter>(c => c.Timeout = TimeSpan.FromSeconds(15))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         return services;
     }
 }

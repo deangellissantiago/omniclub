@@ -2,6 +2,7 @@ using Checkin.Application.DTOs.Checkins;
 using Checkin.Application.Ports;
 using Checkin.Application.Ports.Integrations;
 using Checkin.Application.Ports.Repositories;
+using Checkin.Application.UseCases.Students;
 using Checkin.Application.UseCases.Webhooks;
 using Checkin.Domain.Entities;
 using Checkin.Domain.Enums;
@@ -161,7 +162,8 @@ public class CheckinService
             return ToDto(existing, existingStudent is null ? Array.Empty<Student>() : new[] { existingStudent }, new[] { checkinPoint });
         }
 
-        var student = await FindOrCreateTotalPassStudentAsync(checkinPoint.TenantId, data, ct);
+        var student = await TotalPassStudentResolver.FindOrCreateAsync(_studentRepository, checkinPoint.TenantId,
+            new TotalPassUserInfo(data.UserCode, data.UserName, data.UserEmail, data.UserPhone, data.DocumentNumber, data.DocumentType), ct);
 
         TotalPassConfirmation confirmation;
         if (_totalPassGateway is null || !_totalPassGateway.IsConfigured || string.IsNullOrWhiteSpace(checkinPoint.TotalPassPlaceApiKey))
@@ -194,46 +196,6 @@ public class CheckinService
         if (_outboundWebhooks is not null)
             await _outboundWebhooks.EnqueueCheckinApprovedAsync(created, student, checkinPoint, ct);
         return ToDto(created, student is null ? Array.Empty<Student>() : new[] { student }, new[] { checkinPoint });
-    }
-
-    /// <summary>Acha o aluno pelo código TotalPass; senão pelo CPF (aluno que já existia, ex.: veio
-    /// do Wellhub — vincula o código TotalPass a ele); senão cria com os dados do evento.</summary>
-    private async Task<Student?> FindOrCreateTotalPassStudentAsync(string tenantId, TotalPassCheckinData data, CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(data.UserCode))
-        {
-            var byCode = await _studentRepository.GetByTotalPassMemberIdAsync(tenantId, data.UserCode, ct);
-            if (byCode is not null) return byCode;
-        }
-
-        var cpf = string.Equals(data.DocumentType, "cpf", StringComparison.OrdinalIgnoreCase) && data.DocumentNumber is not null
-            ? new string(data.DocumentNumber.Where(char.IsDigit).ToArray())
-            : null;
-        if (!string.IsNullOrEmpty(cpf))
-        {
-            var byDocument = await _studentRepository.GetByDocumentAsync(tenantId, cpf, ct);
-            if (byDocument is not null)
-            {
-                if (!string.IsNullOrWhiteSpace(data.UserCode) && byDocument.TotalPassMemberId != data.UserCode)
-                {
-                    byDocument.TotalPassMemberId = data.UserCode;
-                    await _studentRepository.UpdateAsync(byDocument, ct);
-                }
-                return byDocument;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(data.UserName)) return null;
-
-        return await _studentRepository.CreateAsync(new Student
-        {
-            TenantId = tenantId,
-            Name = data.UserName.Trim(),
-            Email = data.UserEmail,
-            Phone = data.UserPhone,
-            Document = cpf,
-            TotalPassMemberId = data.UserCode
-        }, ct);
     }
 
     private static CheckinDto ToDto(CheckinRecord r, IReadOnlyList<Student> students, IReadOnlyList<CheckinPoint> points)

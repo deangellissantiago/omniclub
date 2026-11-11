@@ -96,7 +96,7 @@ npm run dev
 
 ## Testes
 
-- **Backend**: `cd backend && dotnet test` — 154 testes (unit) cobrindo os casos de uso de
+- **Backend**: `cd backend && dotnet test` — 166 testes (unit) cobrindo os casos de uso de
   Check-in/Booking/Billing/Auth, os gateways Wellhub/Stripe e o `SimulationController` (ver
   "Integração Wellhub"/"Cobrança / Stripe" abaixo).
 - **Backend (E2E do Swagger)**: `cd backend/e2e && npm install && npm test` — Playwright dirige o
@@ -323,7 +323,7 @@ padrão da Access Control API, e errado em vários pontos — todos corrigidos:
 
 ```bash
 cd backend
-dotnet test                                   # 154 testes: Checkin/Booking services, WellhubSignature, gateways
+dotnet test                                   # 166 testes: Checkin/Booking services, WellhubSignature, gateways
 ./scripts/simulate-wellhub-checkin.sh         # end-to-end local: assina e envia um check-in de teste
                                                # para a API rodando (docker compose ou dotnet run),
                                                # cadastra o CheckinPoint 609 se faltar
@@ -456,6 +456,22 @@ found"}`).
 **Confirmado ao vivo** (unidade de teste do portal `DVP-HML-266`, placeId `68362`): autenticação,
 cadastro do webhook e reconexão (atualiza o mesmo webhook). O `GET /partner/webhook/get` real
 devolve uma lista `{id, url, webhookType, ...}`, diferente da doc — o adapter aceita os dois.
+
+### Agenda e reservas TotalPass (API "Booking - New", ✅ confirmada ao vivo em 2026-11-11)
+
+- **Aula** (Agenda de aulas) escolhe em quais apps é publicada: Wellhub (produto) e/ou TotalPass
+  (plano da unidade — `GET /api/classes/totalpass-plans/{pointId}` → `GET /partner/plans` — e
+  responsável, obrigatório lá; vazio = "Equipe {unidade}"). Vagas **separadas por app**.
+- **Horário** → ocorrência avulsa no TotalPass (`POST /partner/event-occurrence`, data/hora de São
+  Paulo em `eventDate` + `startTime` "06:00 PM", `externalReference` = id do horário). Falhou →
+  "Pendente", sobe no "Sincronizar". Confirmado ao vivo na `DVP-HML-266` (evento criado com data,
+  hora, vagas, plano e referência certos; removido depois do teste).
+- **Reservas**: o botão "Conectar" também assina o webhook de reservas
+  (`POST /partner/webhook/subscribe` → `/api/integrations/totalpass/bookings/{chave-secreta}`). O
+  TotalPass confirma a reserva sozinho (`hasSlotConfirmation` no padrão, false); o OmniClub registra
+  (Confirmada / Cancelada, idempotente pelo id da reserva), conta as vagas TotalPass do horário e
+  pré-cadastra o aluno. Reserva de aula criada fora do OmniClub é ignorada (log).
+- Token da API de reservas é **outro** (host booking-api), cacheado à parte; 401 → reautentica 1×.
 
 **Pendente com o TotalPass**: como simular um check-in real na unidade de teste; host de produção
 da confirmação e se ela exige autenticação; assinatura/reenvio/timeout do webhook deles;

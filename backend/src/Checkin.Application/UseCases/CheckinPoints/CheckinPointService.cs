@@ -15,18 +15,21 @@ public class CheckinPointService
     private readonly IWellhubBookingGateway _wellhubBookingGateway;
     private readonly ICurrentTenantContext _tenantContext;
     private readonly ITotalPassGateway? _totalPassGateway;
+    private readonly ITotalPassBookingGateway? _totalPassBookingGateway;
 
     public CheckinPointService(
         ICheckinPointRepository repository, IWellhubBookingGateway wellhubBookingGateway, ICurrentTenantContext tenantContext,
-        ITotalPassGateway? totalPassGateway = null)
+        ITotalPassGateway? totalPassGateway = null, ITotalPassBookingGateway? totalPassBookingGateway = null)
     {
         _repository = repository;
         _wellhubBookingGateway = wellhubBookingGateway;
         _tenantContext = tenantContext;
         _totalPassGateway = totalPassGateway;
+        _totalPassBookingGateway = totalPassBookingGateway;
     }
 
     public const string TotalPassWebhookPathPrefix = "/api/integrations/totalpass/checkins/";
+    public const string TotalPassBookingWebhookPathPrefix = "/api/integrations/totalpass/bookings/";
 
     public async Task<IReadOnlyList<CheckinPointDto>> ListAsync(CancellationToken ct = default)
     {
@@ -88,6 +91,7 @@ public class CheckinPointService
             point.TotalPassPlaceName = null;
             point.TotalPassPlaceId = null;
             point.TotalPassPricePerCheckinCents = null;
+            point.TotalPassBookingsConnectedAt = null;
             return;
         }
 
@@ -98,6 +102,7 @@ public class CheckinPointService
             // Chave nova (ou trocada) → precisa reconectar: a conexão anterior era da chave antiga.
             point.TotalPassPlaceApiKey = placeKey;
             point.TotalPassConnectedAt = null;
+            point.TotalPassBookingsConnectedAt = null;
         }
     }
 
@@ -132,7 +137,25 @@ public class CheckinPointService
         point.TotalPassPlaceName = connection.PlaceName;
         if (!string.IsNullOrWhiteSpace(connection.PlaceId)) point.TotalPassPlaceId = connection.PlaceId;
 
+        // Webhook de reservas (API "Booking - New", outro host). Falha aqui não desfaz o check-in
+        // já conectado: grava o que deu certo e avisa.
+        string? bookingError = null;
+        if (_totalPassBookingGateway is { IsConfigured: true })
+        {
+            try
+            {
+                await _totalPassBookingGateway.SubscribeBookingWebhookAsync(point.TotalPassPlaceApiKey!, TotalPassBookingWebhookPathPrefix + point.TotalPassWebhookKey, ct);
+                point.TotalPassBookingsConnectedAt = DateTime.UtcNow;
+            }
+            catch (TotalPassException ex)
+            {
+                bookingError = ex.Message;
+            }
+        }
+
         await _repository.UpdateAsync(point, ct);
+        if (bookingError is not null)
+            throw new ConflictException($"Check-ins conectados, mas as reservas não: {bookingError} Tente \"Reconectar\" em instantes.");
         return ToDto(point);
     }
 
@@ -182,6 +205,7 @@ public class CheckinPointService
                 p.TotalPassConnectedAt,
                 p.TotalPassPlaceName,
                 p.TotalPassPlaceId,
-                p.TotalPassPricePerCheckinCents)
+                p.TotalPassPricePerCheckinCents,
+                p.TotalPassBookingsConnectedAt)
             : null);
 }

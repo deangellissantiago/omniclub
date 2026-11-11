@@ -205,12 +205,12 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
   );
 }
 
-/** Se o item (categoria/horário) já existe do lado do Wellhub — só aí o aluno enxerga no app. */
+/** Se o item (aula/horário) já existe do lado do app — só aí o aluno enxerga lá. */
 export function SyncBadge({ synced }: { synced: boolean }) {
   return (
     <span className={`badge ${synced ? "badge-approved" : "badge-pending"}`}>
       <span className="dot" />
-      {synced ? "No Wellhub" : "Pendente"}
+      {synced ? "Publicado" : "Pendente"}
     </span>
   );
 }

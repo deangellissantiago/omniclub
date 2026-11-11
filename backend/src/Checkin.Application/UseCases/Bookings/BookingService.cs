@@ -1,19 +1,24 @@
+using Checkin.Application.Common;
 using Checkin.Application.DTOs.Bookings;
 using Checkin.Application.DTOs.Checkins;
 using Checkin.Application.Ports;
 using Checkin.Application.Ports.Integrations;
 using Checkin.Application.Ports.Repositories;
+using Checkin.Application.UseCases.Students;
 using Checkin.Domain.Entities;
 using Checkin.Domain.Enums;
 
 namespace Checkin.Application.UseCases.Bookings;
 
 /// <summary>
-/// Casos de uso da Booking API do Wellhub: "Configuração de Grade" (categorias/slots),
-/// "Atualização de Vagas" e "Gestão de Reservas" — fluxo confirmado com o Wellhub Technical
-/// Sales. Reservas seguem a mesma filosofia de aprovação automática dos check-ins (ver
-/// CheckinService): confirmamos na hora se há vaga, rejeitamos se não há — sem fila de espera
-/// nem aprovação manual.
+/// Agenda e reservas dos apps. <b>Wellhub</b> (Booking API): "Configuração de Grade"
+/// (categorias/slots), "Atualização de Vagas" e "Gestão de Reservas" — confirmamos na hora se há
+/// vaga, rejeitamos se não há. <b>TotalPass</b> ("Booking - New"): cada horário vira uma ocorrência
+/// avulsa lá; o próprio TotalPass controla a lotação e confirma a reserva (hasSlotConfirmation
+/// fica no padrão, false) — aqui só registramos o que chega pelo webhook de reservas.
+///
+/// Uma aula (WellhubClass — nome mantido por compatibilidade) pode ser publicada nos dois apps
+/// que a unidade aceita, com vagas separadas por app.
 /// </summary>
 public class BookingService
 {
@@ -24,11 +29,15 @@ public class BookingService
     private readonly ICheckinPointRepository _checkinPoints;
     private readonly IWellhubBookingGateway _gateway;
     private readonly ICurrentTenantContext _tenantContext;
+    private readonly ITotalPassBookingGateway? _totalPass;
 
+    /// <param name="totalPass">Opcional só pra não obrigar os testes do Wellhub a montarem o
+    /// TotalPass — em produção vem sempre do DI.</param>
     public BookingService(
         IClassRepository classes, IClassSlotRepository slots, IBookingRepository bookings,
         IStudentRepository students, ICheckinPointRepository checkinPoints,
-        IWellhubBookingGateway gateway, ICurrentTenantContext tenantContext)
+        IWellhubBookingGateway gateway, ICurrentTenantContext tenantContext,
+        ITotalPassBookingGateway? totalPass = null)
     {
         _classes = classes;
         _slots = slots;
@@ -37,6 +46,7 @@ public class BookingService
         _checkinPoints = checkinPoints;
         _gateway = gateway;
         _tenantContext = tenantContext;
+        _totalPass = totalPass;
     }
 
     // ---- Configuração de Grade -------------------------------------------------------------
@@ -53,23 +63,60 @@ public class BookingService
         return await _gateway.ListProductsAsync(checkinPoint.ExternalId, ct) ?? Array.Empty<WellhubProductDto>();
     }
 
+    /// <summary>Planos TotalPass da unidade (o planId é obrigatório pra publicar aula lá).</summary>
+    public async Task<IReadOnlyList<TotalPassPlanDto>> ListTotalPassPlansAsync(string checkinPointId, CancellationToken ct = default)
+    {
+        var point = await GetPointAsync(checkinPointId, ct);
+        if (!point.AcceptsTotalPass())
+            throw new ArgumentException("Esta unidade não aceita TotalPass.");
+        EnsureTotalPassConfigured();
+
+        try
+        {
+            var plans = await _totalPass!.ListPlansAsync(point.TotalPassPlaceApiKey!, ct);
+            return plans.Select(p => new TotalPassPlanDto(p.Id, p.Name, p.Code)).ToList();
+        }
+        catch (TotalPassException ex)
+        {
+            throw new Exceptions.ConflictException(ex.Message);
+        }
+    }
+
     public async Task<ClassDto> CreateClassAsync(CreateClassRequest request, CancellationToken ct = default)
     {
-        var checkinPoint = await _checkinPoints.GetByIdAsync(_tenantContext.TenantId, request.CheckinPointId, ct)
-            ?? throw new Exceptions.NotFoundException($"Ponto de check-in '{request.CheckinPointId}' não encontrado.");
+        var checkinPoint = await GetPointAsync(request.CheckinPointId, ct);
 
-        var externalId = _gateway.IsConfigured
-            ? await _gateway.CreateClassAsync(checkinPoint.ExternalId, request.Name, request.Description, request.ProductId, ct)
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new ArgumentException("Informe o nome da aula.");
+        if (!request.PublishWellhub && !request.PublishTotalPass)
+            throw new ArgumentException("Escolha em qual app publicar a aula: Wellhub e/ou TotalPass.");
+        if (request.PublishWellhub)
+        {
+            if (!checkinPoint.AcceptsWellhub()) throw new ArgumentException("Esta unidade não aceita Wellhub.");
+            if (request.ProductId is not > 0) throw new ArgumentException("Escolha o produto Wellhub da aula.");
+        }
+        if (request.PublishTotalPass)
+        {
+            if (!checkinPoint.AcceptsTotalPass()) throw new ArgumentException("Esta unidade não aceita TotalPass.");
+            if (request.TotalPassPlanId is not > 0) throw new ArgumentException("Escolha o plano TotalPass da aula.");
+        }
+
+        var externalId = request.PublishWellhub && _gateway.IsConfigured
+            ? await _gateway.CreateClassAsync(checkinPoint.ExternalId, request.Name, request.Description, request.ProductId!.Value, ct)
             : null;
 
         var wellhubClass = new WellhubClass
         {
             TenantId = _tenantContext.TenantId,
             CheckinPointId = checkinPoint.Id,
-            Name = request.Name,
+            Name = request.Name.Trim(),
             Description = request.Description,
-            ProductId = request.ProductId,
-            ExternalId = externalId
+            ProductId = request.PublishWellhub ? request.ProductId!.Value : 0,
+            ExternalId = externalId,
+            PublishWellhub = request.PublishWellhub,
+            PublishTotalPass = request.PublishTotalPass,
+            TotalPassPlanId = request.PublishTotalPass ? request.TotalPassPlanId : null,
+            Instructor = string.IsNullOrWhiteSpace(request.Instructor) ? null : request.Instructor.Trim(),
         };
 
         var created = await _classes.CreateAsync(wellhubClass, ct);
@@ -88,22 +135,23 @@ public class BookingService
     }
 
     /// <summary>
-    /// Reenvia ao Wellhub o que ficou só do nosso lado: a categoria (se o POST original falhou ou
-    /// foi feito sem Wellhub:ApiKey) e os horários futuros ainda sem id externo. Horários passados
-    /// ficam de fora — não faz sentido publicar pro aluno reservar uma aula que já aconteceu.
+    /// Reenvia aos apps o que ficou só do nosso lado: no Wellhub, a categoria (se o POST original
+    /// falhou ou foi feito sem Wellhub:ApiKey) e os horários futuros sem id externo; no TotalPass,
+    /// os horários futuros ainda não publicados. Horários passados ficam de fora — não faz sentido
+    /// publicar pro aluno reservar uma aula que já aconteceu.
     /// </summary>
     public async Task<ClassDto> SyncClassAsync(string classId, CancellationToken ct = default)
     {
         var wellhubClass = await _classes.GetByIdAsync(_tenantContext.TenantId, classId, ct)
             ?? throw new Exceptions.NotFoundException($"Categoria de aula '{classId}' não encontrada.");
 
-        if (!_gateway.IsConfigured)
+        if (wellhubClass.PublishWellhub && !_gateway.IsConfigured)
             throw new Exceptions.ConflictException("Integração com o Wellhub não configurada — não há como sincronizar agora.");
+        if (wellhubClass.PublishTotalPass) EnsureTotalPassConfigured();
 
-        var checkinPoint = await _checkinPoints.GetByIdAsync(_tenantContext.TenantId, wellhubClass.CheckinPointId, ct)
-            ?? throw new Exceptions.NotFoundException($"Ponto de check-in '{wellhubClass.CheckinPointId}' não encontrado.");
+        var checkinPoint = await GetPointAsync(wellhubClass.CheckinPointId, ct);
 
-        if (wellhubClass.ExternalId is null)
+        if (wellhubClass.PublishWellhub && wellhubClass.ExternalId is null)
         {
             wellhubClass.ExternalId = await _gateway.CreateClassAsync(
                 checkinPoint.ExternalId, wellhubClass.Name, wellhubClass.Description, wellhubClass.ProductId, ct)
@@ -112,15 +160,24 @@ public class BookingService
             await _classes.UpdateAsync(wellhubClass, ct);
         }
 
-        var pendingSlots = (await _slots.ListByClassAsync(_tenantContext.TenantId, wellhubClass.Id, ct))
-            .Where(s => s.ExternalId is null && s.StartsAt > DateTime.UtcNow);
+        var futureSlots = (await _slots.ListByClassAsync(_tenantContext.TenantId, wellhubClass.Id, ct))
+            .Where(s => s.StartsAt > DateTime.UtcNow);
 
-        foreach (var slot in pendingSlots)
+        foreach (var slot in futureSlots)
         {
-            slot.ExternalId = await _gateway.CreateSlotAsync(
-                checkinPoint.ExternalId, wellhubClass.ExternalId, wellhubClass.ProductId,
-                slot.StartsAt, slot.EndsAt, slot.Capacity, ct);
-            if (slot.ExternalId is null) continue;
+            var changed = false;
+            if (wellhubClass.PublishWellhub && slot.ExternalId is null && slot.Capacity > 0)
+            {
+                slot.ExternalId = await _gateway.CreateSlotAsync(
+                    checkinPoint.ExternalId, wellhubClass.ExternalId!, wellhubClass.ProductId,
+                    slot.StartsAt, slot.EndsAt, slot.Capacity, ct);
+                changed |= slot.ExternalId is not null;
+            }
+            if (wellhubClass.PublishTotalPass && slot.TotalPassOccurrenceUuid is null && slot.TotalPassCapacity > 0)
+            {
+                changed |= await PublishToTotalPassAsync(checkinPoint, wellhubClass, slot, ct);
+            }
+            if (!changed) continue;
 
             slot.UpdatedAt = DateTime.UtcNow;
             await _slots.UpdateAsync(slot, ct);
@@ -133,36 +190,64 @@ public class BookingService
     {
         if (request.EndsAt <= request.StartsAt)
             throw new ArgumentException("O horário de término precisa ser depois do início.");
-        if (request.Capacity <= 0)
-            throw new ArgumentException("Informe pelo menos 1 vaga.");
 
         var wellhubClass = await _classes.GetByIdAsync(_tenantContext.TenantId, request.ClassId, ct)
             ?? throw new Exceptions.NotFoundException($"Categoria de aula '{request.ClassId}' não encontrada.");
 
-        string? externalId = null;
-        if (_gateway.IsConfigured && wellhubClass.ExternalId is not null)
-        {
-            var checkinPoint = await _checkinPoints.GetByIdAsync(_tenantContext.TenantId, wellhubClass.CheckinPointId, ct);
-            if (checkinPoint is not null)
-            {
-                externalId = await _gateway.CreateSlotAsync(
-                    checkinPoint.ExternalId, wellhubClass.ExternalId, wellhubClass.ProductId,
-                    request.StartsAt, request.EndsAt, request.Capacity, ct);
-            }
-        }
+        if (wellhubClass.PublishWellhub && request.Capacity <= 0)
+            throw new ArgumentException("Informe pelo menos 1 vaga para o Wellhub.");
+        if (wellhubClass.PublishTotalPass && request.TotalPassCapacity <= 0)
+            throw new ArgumentException("Informe pelo menos 1 vaga para o TotalPass.");
 
+        var checkinPoint = await _checkinPoints.GetByIdAsync(_tenantContext.TenantId, wellhubClass.CheckinPointId, ct);
+
+        // O objeto nasce antes das chamadas: o Id dele vai como externalReference no TotalPass.
         var slot = new ClassSlot
         {
             TenantId = _tenantContext.TenantId,
             ClassId = wellhubClass.Id,
             StartsAt = request.StartsAt,
             EndsAt = request.EndsAt,
-            Capacity = request.Capacity,
-            ExternalId = externalId
+            Capacity = wellhubClass.PublishWellhub ? request.Capacity : 0,
+            TotalPassCapacity = wellhubClass.PublishTotalPass ? request.TotalPassCapacity : 0,
         };
+
+        if (wellhubClass.PublishWellhub && _gateway.IsConfigured && wellhubClass.ExternalId is not null && checkinPoint is not null)
+        {
+            slot.ExternalId = await _gateway.CreateSlotAsync(
+                checkinPoint.ExternalId, wellhubClass.ExternalId, wellhubClass.ProductId,
+                request.StartsAt, request.EndsAt, request.Capacity, ct);
+        }
+
+        if (wellhubClass.PublishTotalPass && _totalPass is { IsConfigured: true } && checkinPoint is not null)
+        {
+            await PublishToTotalPassAsync(checkinPoint, wellhubClass, slot, ct);
+        }
 
         var created = await _slots.CreateAsync(slot, ct);
         return ToSlotDto(created);
+    }
+
+    /// <summary>Publica o horário como ocorrência avulsa no TotalPass. Falha não lança: o horário
+    /// fica pendente (sem occurrenceUuid) e sobe de novo pelo "Sincronizar".</summary>
+    private async Task<bool> PublishToTotalPassAsync(CheckinPoint point, WellhubClass wellhubClass, ClassSlot slot, CancellationToken ct)
+    {
+        if (_totalPass is null || !point.AcceptsTotalPass() || wellhubClass.TotalPassPlanId is not long planId) return false;
+
+        var occurrence = await _totalPass.CreateOccurrenceAsync(point.TotalPassPlaceApiKey!, new TotalPassOccurrenceRequest(
+            Title: wellhubClass.Name,
+            Responsible: wellhubClass.Instructor ?? $"Equipe {point.Name}",
+            Description: wellhubClass.Description,
+            DurationMinutes: (int)Math.Round((slot.EndsAt - slot.StartsAt).TotalMinutes),
+            Slots: slot.TotalPassCapacity,
+            PlanId: planId,
+            StartsAtLocal: SaoPauloTime.FromUtc(slot.StartsAt).DateTime,
+            ExternalReference: slot.Id), ct);
+        if (occurrence is null) return false;
+
+        slot.TotalPassEventId = occurrence.EventId;
+        slot.TotalPassOccurrenceUuid = occurrence.OccurrenceUuid;
+        return true;
     }
 
     // ---- Gestão de Reservas ------------------------------------------------------------------
@@ -197,7 +282,7 @@ public class BookingService
                 b.StudentId, student?.Name, b.GympassId,
                 wellhubClass?.Id, wellhubClass?.Name,
                 point?.Id, point?.Name,
-                slot?.StartsAt);
+                slot?.StartsAt, b.App);
         }).ToList();
     }
 
@@ -314,15 +399,96 @@ public class BookingService
         return ToBookingDto(booking, student);
     }
 
+    // ---- Reservas do TotalPass (webhook) --------------------------------------------------
+
+    /// <summary>
+    /// Webhook de reserva do TotalPass (chega pela URL da unidade, ver
+    /// CheckinPoint.TotalPassWebhookKey). O TotalPass já confirmou a reserva do lado dele
+    /// (hasSlotConfirmation=false, padrão), então aqui é só registro: reserva nova → Confirmed e
+    /// +1 vaga ocupada; status de cancelamento → Canceled e −1. Idempotente pelo id da reserva lá.
+    /// Horário desconhecido (aula criada fora do OmniClub) → ignorado, com log de quem chamou.
+    /// </summary>
+    public async Task<BookingDto?> HandleTotalPassBookingAsync(string webhookKey, TotalPassBookingData data, string? rawPayload, CancellationToken ct = default)
+    {
+        var point = await _checkinPoints.GetByTotalPassWebhookKeyAsync(webhookKey, ct)
+            ?? throw new Exceptions.NotFoundException("Nenhuma unidade TotalPass cadastrada para esta URL de webhook.");
+
+        var slot = await _slots.GetByTotalPassEventIdAsync(point.TenantId, data.EventId, ct);
+        if (slot is null) return null;
+
+        var externalBookingId = $"totalpass:{data.SlotId}";
+        var existing = await _bookings.FindByExternalBookingIdAsync(point.TenantId, externalBookingId, ct);
+        var canceled = IsCanceledStatus(data.Status);
+
+        if (existing is not null)
+        {
+            if (canceled && existing.Status == BookingStatus.Confirmed)
+            {
+                existing.Status = BookingStatus.Canceled;
+                existing.RespondedAt = DateTime.UtcNow;
+                await _bookings.UpdateAsync(existing, ct);
+                slot.TotalPassBookedCount = Math.Max(0, slot.TotalPassBookedCount - 1);
+                await _slots.UpdateAsync(slot, ct);
+            }
+            var existingStudent = existing.StudentId is null ? null : await _students.GetByIdAsync(point.TenantId, existing.StudentId, ct);
+            return ToBookingDto(existing, existingStudent);
+        }
+
+        var student = await TotalPassStudentResolver.FindOrCreateAsync(_students, point.TenantId, data.User, ct);
+        var booking = new Booking
+        {
+            TenantId = point.TenantId,
+            App = IntegrationApp.TotalPass,
+            SlotId = slot.Id,
+            StudentId = student?.Id,
+            GympassId = data.User.Code ?? string.Empty,
+            ExternalBookingId = externalBookingId,
+            Status = canceled ? BookingStatus.Canceled : BookingStatus.Confirmed,
+            RequestedAt = DateTime.UtcNow,
+            RespondedAt = DateTime.UtcNow,
+            RawPayload = rawPayload
+        };
+        await _bookings.CreateAsync(booking, ct);
+
+        if (!canceled)
+        {
+            slot.TotalPassBookedCount++;
+            await _slots.UpdateAsync(slot, ct);
+        }
+        return ToBookingDto(booking, student);
+    }
+
+    /// <summary>A doc só mostra "active" e "expired" como status de reserva; tratamos qualquer
+    /// variação de cancelado/negado/removido como cancelamento.</summary>
+    private static bool IsCanceledStatus(string? status) =>
+        status is not null && (status.Contains("cancel", StringComparison.OrdinalIgnoreCase)
+            || status.Contains("denied", StringComparison.OrdinalIgnoreCase)
+            || status.Contains("removed", StringComparison.OrdinalIgnoreCase)
+            || status.Contains("inactive", StringComparison.OrdinalIgnoreCase));
+
+    private async Task<CheckinPoint> GetPointAsync(string checkinPointId, CancellationToken ct) =>
+        await _checkinPoints.GetByIdAsync(_tenantContext.TenantId, checkinPointId, ct)
+        ?? throw new Exceptions.NotFoundException($"Ponto de check-in '{checkinPointId}' não encontrado.");
+
+    private void EnsureTotalPassConfigured()
+    {
+        if (_totalPass is null || !_totalPass.IsConfigured)
+            throw new Exceptions.ConflictException("Integração TotalPass não configurada no servidor (falta a chave de integrador do OmniClub).");
+    }
+
     private async Task SyncVacancyAsync(CheckinPoint? checkinPoint, WellhubClass? wellhubClass, ClassSlot slot, CancellationToken ct)
     {
         if (checkinPoint is null || wellhubClass?.ExternalId is null || slot.ExternalId is null) return;
         await _gateway.UpdateSlotVacancyAsync(checkinPoint.ExternalId, wellhubClass.ExternalId, slot.ExternalId, slot.Capacity, slot.BookedCount, ct);
     }
 
-    private static ClassDto ToClassDto(WellhubClass c) => new(c.Id, c.CheckinPointId, c.Name, c.Description, c.ProductId, c.ExternalId, c.Active);
+    private static ClassDto ToClassDto(WellhubClass c) => new(
+        c.Id, c.CheckinPointId, c.Name, c.Description, c.ProductId, c.ExternalId, c.Active,
+        c.PublishWellhub, c.PublishTotalPass, c.TotalPassPlanId, c.Instructor);
 
-    private static ClassSlotDto ToSlotDto(ClassSlot s) => new(s.Id, s.ClassId, s.StartsAt, s.EndsAt, s.Capacity, s.BookedCount, s.ExternalId);
+    private static ClassSlotDto ToSlotDto(ClassSlot s) => new(
+        s.Id, s.ClassId, s.StartsAt, s.EndsAt, s.Capacity, s.BookedCount, s.ExternalId,
+        s.TotalPassCapacity, s.TotalPassBookedCount, s.TotalPassOccurrenceUuid);
 
     private static BookingDto ToBookingDto(Booking b, Student? student) =>
         new(b.Id, b.SlotId, b.StudentId, student?.Name, b.GympassId, b.Status, b.RequestedAt, b.RespondedAt);

@@ -24,6 +24,20 @@ public class WellhubClass
     /// confirma a criação do lado deles. Nulo enquanto a sincronização não aconteceu/falhou.</summary>
     public string? ExternalId { get; set; }
 
+    /// <summary>Publicar esta aula no Wellhub (categoria + horários). Default true: aulas criadas
+    /// antes do TotalPass existir eram todas do Wellhub.</summary>
+    public bool PublishWellhub { get; set; } = true;
+
+    /// <summary>Publicar esta aula no TotalPass — cada horário vira uma ocorrência avulsa lá
+    /// (ver ClassSlot.TotalPassEventId). Não existe "categoria" no TotalPass.</summary>
+    public bool PublishTotalPass { get; set; }
+
+    /// <summary>Plano do TotalPass da unidade ao qual a aula pertence (planId, obrigatório lá).</summary>
+    public long? TotalPassPlanId { get; set; }
+
+    /// <summary>Professor/responsável — campo obrigatório nas aulas do TotalPass.</summary>
+    public string? Instructor { get; set; }
+
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

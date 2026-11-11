@@ -14,10 +14,15 @@ public class Booking
     public string TenantId { get; set; } = string.Empty;
     public string SlotId { get; set; } = string.Empty;
 
+    /// <summary>App de onde veio a reserva. Default Wellhub: reservas gravadas antes do TotalPass
+    /// não têm o campo.</summary>
+    public IntegrationApp App { get; set; } = IntegrationApp.Wellhub;
+
     /// <summary>Nulo quando a reserva não pôde ser casada com nenhum aluno cadastrado.</summary>
     public string? StudentId { get; set; }
 
-    /// <summary>Wellhub ID do usuário que reservou (user.unique_token do payload do webhook).</summary>
+    /// <summary>Id do usuário no app de origem: Wellhub ID (user.unique_token) ou código TotalPass
+    /// (user.code). Nome mantido por compatibilidade com os dados gravados.</summary>
     public string GympassId { get; set; } = string.Empty;
 
     /// <summary>Id da reserva no Wellhub — usado para idempotência e para responder via PATCH Update.</summary>

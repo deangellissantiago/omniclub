@@ -68,4 +68,39 @@ public class TotalPassWebhookController : ControllerBase
 
         return Ok(new { status = "received" });
     }
+
+    /// <summary>Webhook de <b>reservas</b> do TotalPass ("Booking - New" — cadastrado com
+    /// POST /partner/webhook/subscribe). O payload não tem campo de tipo: grava com um tipo fixo.</summary>
+    [HttpPost("bookings/{webhookKey}")]
+    public async Task<IActionResult> ReceiveBooking(string webhookKey, CancellationToken ct)
+    {
+        if (await _points.GetByTotalPassWebhookKeyAsync(webhookKey, ct) is null)
+            return NotFound();
+
+        string rawBody;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+        {
+            rawBody = await reader.ReadToEndAsync(ct);
+        }
+
+        try
+        {
+            using var _ = JsonDocument.Parse(rawBody);
+        }
+        catch (JsonException)
+        {
+            return BadRequest();
+        }
+
+        await _webhookEvents.CreateAsync(new WebhookEvent
+        {
+            Provider = WebhookProcessingService.TotalPassProvider,
+            EventType = WebhookProcessingService.TotalPassBooking,
+            RawPayload = rawBody,
+            RouteKey = webhookKey,
+        }, ct);
+        _signal.Notify();
+
+        return Ok(new { status = "received" });
+    }
 }

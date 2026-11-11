@@ -12,6 +12,10 @@ public class TotalPassOptions
     /// teste do portal (DVP-HML-266) só autenticam em produção — confirmado em 2026-11-11.</summary>
     public string GymServiceBaseUrl { get; set; } = "https://gym-service-api.totalpass.com";
 
+    /// <summary>Host da API de reservas ("Booking - New"). Produção:
+    /// <c>https://booking-api.totalpass.com</c> (as chaves do OmniClub só autenticam em produção).</summary>
+    public string BookingBaseUrl { get; set; } = "https://booking-api.totalpass.com";
+
     /// <summary>Endereço público do OmniClub (ex.: <c>https://omniclub.run</c>) — base da URL de
     /// webhook cadastrada em cada unidade. Precisa ser acessível pela internet.</summary>
     public string WebhookBaseUrl { get; set; } = string.Empty;

@@ -33,6 +33,9 @@ public class FakeClassSlotRepository : IClassSlotRepository
     public Task<ClassSlot?> GetByExternalIdAsync(string externalId, CancellationToken ct = default) =>
         Task.FromResult(Slots.FirstOrDefault(s => s.ExternalId == externalId));
 
+    public Task<ClassSlot?> GetByTotalPassEventIdAsync(string tenantId, string totalPassEventId, CancellationToken ct = default) =>
+        Task.FromResult(Slots.FirstOrDefault(s => s.TenantId == tenantId && s.TotalPassEventId == totalPassEventId));
+
     public Task<IReadOnlyList<ClassSlot>> ListByClassAsync(string tenantId, string classId, CancellationToken ct = default) =>
         Task.FromResult((IReadOnlyList<ClassSlot>)Slots.Where(s => s.TenantId == tenantId && s.ClassId == classId).ToList());
 
