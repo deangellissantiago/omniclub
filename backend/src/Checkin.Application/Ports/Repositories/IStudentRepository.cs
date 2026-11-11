@@ -7,6 +7,12 @@ public interface IStudentRepository
 {
     Task<Student?> GetByIdAsync(string tenantId, string id, CancellationToken ct = default);
     Task<Student?> GetByWellhubMemberIdAsync(string wellhubMemberId, CancellationToken ct = default);
+    Task<Student?> GetByTotalPassMemberIdAsync(string tenantId, string totalPassMemberId, CancellationToken ct = default);
+
+    /// <summary>Busca por CPF (só dígitos) dentro do tenant — usado pra vincular ao TotalPass um
+    /// aluno que já existia (ex.: cadastrado pelo Wellhub ou manualmente).</summary>
+    Task<Student?> GetByDocumentAsync(string tenantId, string documentDigits, CancellationToken ct = default);
+
     Task<IReadOnlyList<Student>> ListAsync(string tenantId, CancellationToken ct = default);
     Task<Student> CreateAsync(Student student, CancellationToken ct = default);
     Task<bool> UpdateAsync(Student student, CancellationToken ct = default);

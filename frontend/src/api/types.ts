@@ -68,9 +68,21 @@ export interface CheckinPoint {
   /** Valor (em centavos) que o app repassa à academia por check-in aprovado neste ponto.
    * Nulo enquanto o admin não configurar — o relatório de repasse não estima em cima disso. */
   pricePerCheckinCents?: number | null;
+  /** Só pontos TotalPass: situação da conexão (a place_api_key nunca volta inteira). */
+  totalPass?: TotalPassStatus | null;
 }
 
-export type UpsertCheckinPoint = Omit<CheckinPoint, "id" | "createdAt" | "products">;
+export interface TotalPassStatus {
+  hasPlaceApiKey: boolean;
+  placeApiKeyHint?: string | null;
+  connectedAt?: string | null;
+  placeName?: string | null;
+}
+
+export type UpsertCheckinPoint = Omit<CheckinPoint, "id" | "createdAt" | "products" | "totalPass"> & {
+  /** Só TotalPass. Vazio/omitido na edição = mantém a chave atual. */
+  totalPassPlaceApiKey?: string | null;
+};
 
 export interface CheckinRecord {
   id: string;
@@ -81,6 +93,8 @@ export interface CheckinRecord {
   app: IntegrationApp;
   occurredAt: string;
   status: CheckinStatus;
+  /** Motivo informado pelo app quando a validação foi recusada (ex.: check-in expirado). */
+  rejectionReason?: string | null;
 }
 
 export interface AppCount {

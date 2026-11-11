@@ -33,4 +33,25 @@ public class CheckinPoint
     /// <summary>Produtos Wellhub vinculados a este ponto (ver CheckinPointService.SyncProductsAsync
     /// e WellhubProductRef). Vazio até alguém clicar em "Buscar produtos" no cadastro do ponto.</summary>
     public List<WellhubProductRef> Products { get; set; } = new();
+
+    // ---- TotalPass ---------------------------------------------------------------------
+
+    /// <summary>Chave da unidade no TotalPass ("place_api_key"), gerada pela própria academia no
+    /// sistema do TotalPass e colada aqui — junto com a chave de integrador do OmniClub
+    /// (TotalPass:PartnerApiKey) é o que autoriza o OmniClub a operar esta unidade.</summary>
+    public string? TotalPassPlaceApiKey { get; set; }
+
+    /// <summary>Segredo aleatório que compõe a URL de webhook desta unidade
+    /// (/api/integrations/totalpass/checkins/{chave}). O TotalPass não assina os webhooks (nada
+    /// documentado), então é isto que impede terceiros de injetar check-ins: só quem tem a URL
+    /// exata — o próprio TotalPass, onde ela foi cadastrada — consegue chamar.</summary>
+    public string? TotalPassWebhookKey { get; set; }
+
+    /// <summary>Última vez que a URL de webhook foi cadastrada no TotalPass com sucesso (botão
+    /// "Conectar ao TotalPass"). Nulo = nunca conectado.</summary>
+    public DateTime? TotalPassConnectedAt { get; set; }
+
+    /// <summary>Nome da unidade como o TotalPass a conhece (resposta do /partner/auth) — só para
+    /// conferência no painel.</summary>
+    public string? TotalPassPlaceName { get; set; }
 }

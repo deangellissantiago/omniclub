@@ -20,6 +20,12 @@ export async function deleteCheckinPoint(id: string): Promise<void> {
   await apiClient.delete(`/checkin-points/${id}`);
 }
 
+/** Autentica a unidade no TotalPass e cadastra lá a URL de webhook dela. */
+export async function connectTotalPass(id: string): Promise<CheckinPoint> {
+  const { data } = await apiClient.post<CheckinPoint>(`/checkin-points/${id}/totalpass/connect`);
+  return data;
+}
+
 /** Busca os produtos (planos/tipos de acesso) reais deste ponto no Wellhub e vincula ao
  * cadastro, pra ficarem visíveis (GET /setup/v1/gyms/:gym_id/products por baixo). */
 export async function syncCheckinPointProducts(id: string): Promise<CheckinPoint> {

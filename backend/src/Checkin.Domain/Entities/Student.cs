@@ -16,7 +16,7 @@ public class Student
     /// <summary>Wellhub ID (identificador único do usuário) — usado para casar check-ins recebidos.</summary>
     public string? WellhubMemberId { get; set; }
 
-    /// <summary>Reservado para quando a integração TotalPass for implementada.</summary>
+    /// <summary>Código do usuário no TotalPass (user.code do webhook CHECK_IN_CREATED).</summary>
     public string? TotalPassMemberId { get; set; }
 
     public bool Active { get; set; } = true;

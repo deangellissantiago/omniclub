@@ -19,6 +19,7 @@ using Checkin.Application.UseCases.Students;
 using Checkin.Application.UseCases.Webhooks;
 using Checkin.Infrastructure.Persistence.Mongo;
 using Checkin.Infrastructure.Stripe;
+using Checkin.Infrastructure.TotalPass;
 using Checkin.Infrastructure.Wellhub;
 using Checkin.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -78,6 +79,7 @@ builder.Services.AddCors(options =>
 // Infraestrutura (adapters de saída)
 builder.Services.AddMongoPersistence(builder.Configuration);
 builder.Services.AddWellhubIntegration(builder.Configuration);
+builder.Services.AddTotalPassIntegration(builder.Configuration);
 builder.Services.AddBillingIntegration(builder.Configuration);
 builder.Services.AddWhatsAppIntegration(builder.Configuration);
 

@@ -79,3 +79,26 @@ public static class WebhookEventReader
     public static string? ReadEventType(string rawBody) =>
         JsonSerializer.Deserialize<EventEnvelope>(rawBody, JsonOptions)?.EventType;
 }
+
+// Payload do TotalPass ("Webhook - Checkin", dev.totalpass.com — exemplo do
+// post_webhook-confirmations-token): {"type":"CHECK_IN_CREATED","endpoint":"<URL de confirmação>",
+// "check_in":{started_at,plan_code,expires_at},"place":{place,name,code},
+// "user":{name,email,phone,document_number,document_type,code}}.
+public record TotalPassCheckinPayload(
+    [property: JsonPropertyName("type")] string? Type,
+    [property: JsonPropertyName("endpoint")] string? Endpoint,
+    [property: JsonPropertyName("check_in")] TotalPassCheckinInfo? CheckIn,
+    [property: JsonPropertyName("user")] TotalPassUser? User);
+
+public record TotalPassCheckinInfo(
+    [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt,
+    [property: JsonPropertyName("expires_at")] DateTimeOffset? ExpiresAt,
+    [property: JsonPropertyName("plan_code")] string? PlanCode);
+
+public record TotalPassUser(
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("email")] string? Email,
+    [property: JsonPropertyName("phone")] string? Phone,
+    [property: JsonPropertyName("document_number")] string? DocumentNumber,
+    [property: JsonPropertyName("document_type")] string? DocumentType,
+    [property: JsonPropertyName("code")] string? Code);

@@ -34,6 +34,12 @@ public class CheckinPointsController : ControllerBase
 
     /// <summary>Busca os produtos (planos/tipos de acesso) reais deste ponto no Wellhub e
     /// vincula ao cadastro, pra ficarem visíveis (ver CheckinPointService.SyncProductsAsync).</summary>
+    /// <summary>Autentica a unidade no TotalPass e cadastra lá a URL de webhook dela (ver
+    /// CheckinPointService.ConnectTotalPassAsync).</summary>
+    [HttpPost("{id}/totalpass/connect")]
+    public async Task<ActionResult<CheckinPointDto>> ConnectTotalPass(string id, CancellationToken ct) =>
+        Ok(await _service.ConnectTotalPassAsync(id, ct));
+
     [HttpPost("{id}/sync-products")]
     public async Task<ActionResult<CheckinPointDto>> SyncProducts(string id, CancellationToken ct) =>
         Ok(await _service.SyncProductsAsync(id, ct));

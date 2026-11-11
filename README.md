@@ -96,7 +96,7 @@ npm run dev
 
 ## Testes
 
-- **Backend**: `cd backend && dotnet test` — 125 testes (unit) cobrindo os casos de uso de
+- **Backend**: `cd backend && dotnet test` — 149 testes (unit) cobrindo os casos de uso de
   Check-in/Booking/Billing/Auth, os gateways Wellhub/Stripe e o `SimulationController` (ver
   "Integração Wellhub"/"Cobrança / Stripe" abaixo).
 - **Backend (E2E do Swagger)**: `cd backend/e2e && npm install && npm test` — Playwright dirige o
@@ -319,7 +319,7 @@ padrão da Access Control API, e errado em vários pontos — todos corrigidos:
 
 ```bash
 cd backend
-dotnet test                                   # 125 testes: Checkin/Booking services, WellhubSignature, gateways
+dotnet test                                   # 149 testes: Checkin/Booking services, WellhubSignature, gateways
 ./scripts/simulate-wellhub-checkin.sh         # end-to-end local: assina e envia um check-in de teste
                                                # para a API rodando (docker compose ou dotnet run),
                                                # cadastra o CheckinPoint 609 se faltar
@@ -416,13 +416,46 @@ tiver a URL pública (mesmo item pendente do Wellhub — ver seção acima), cad
 Signing Secret (`whsec_...`) pro `.env`, e o fluxo fecha 100% (dá pra testar com o cartão de teste
 padrão do Stripe, `4242 4242 4242 4242`, sem custo nenhum — é modo teste).
 
-## TotalPass
+## Integração TotalPass — check-in (✅ conexão confirmada ao vivo em 2026-11-11)
 
-O domínio já suporta múltiplos apps (`IntegrationApp.Wellhub` / `IntegrationApp.TotalPass`,
-campo `totalPassMemberId` no aluno, CRUD de pontos de check-in por app). Adicionar TotalPass no
-futuro é: 1) criar `Checkin.Infrastructure.TotalPass` com seu adapter, 2) adicionar um endpoint
-de webhook equivalente, 3) permitir `App: TotalPass` no formulário de pontos de check-in do
-frontend — sem alterar Domain, Application, dashboard ou relatórios.
+Documentação: dev.totalpass.com ("Webhook - Checkin"). Implementado em
+`Checkin.Infrastructure.TotalPass` (adapter), `TotalPassWebhookController` (entrada) e
+`CheckinService.RegisterTotalPassCheckinAsync`.
+
+**Chaves**: `TOTALPASS_PARTNER_API_KEY` (integrador OmniClub, `.env`) + a `place_api_key` de cada
+unidade, gerada pela academia no TotalPass e cadastrada no painel em **Pontos de check-in** (app
+TotalPass). As duas só autenticam nos hosts de **produção** (`gym-service-api.totalpass.com`); no
+staging dão 401.
+
+**Fluxo**
+1. Botão **Conectar ao TotalPass** (`POST /api/checkin-points/{id}/totalpass/connect`):
+   `POST /partner/auth` (JWT de 24 h, cacheado por 23 h) e cadastra (ou atualiza — nunca duplica)
+   o webhook `CHECKIN` da unidade apontando para
+   `{TotalPass:WebhookBaseUrl}/api/integrations/totalpass/checkins/{chave-secreta}`. Preenche o
+   identificador com o id da unidade no TotalPass.
+2. O TotalPass manda `CHECK_IN_CREATED` nessa URL. Como os webhooks deles **não são assinados**
+   (nada documentado), a chave secreta no caminho é o que autentica: chave desconhecida → 404.
+   O corpo é gravado e processado em background (mesma fila do Wellhub).
+3. Processamento: acha/vincula o aluno (código TotalPass → CPF → cria com os dados do evento),
+   faz `POST` na URL de confirmação do evento (`endpoint`) e só aprova com a resposta documentada
+   (HTTP 200 + corpo `1`). 422 (expirado/indisponível), 404, redirecionamento ou resposta
+   inesperada → **Rejeitado** com o motivo, visível em Check-ins. 5xx/rede → reprocessa.
+4. Aprovado → webhook de saída (`origem: "TotalPass"`, com `totalpassId` e `atletaCpf`).
+
+**Travas de segurança** na URL de confirmação (vem dentro do evento): só https em domínio
+`*.totalpass.com` e no caminho `/webhook_confirmations/`; sem seguir redirecionamentos. Motivo:
+em 2026-11-11, `admin.totalpass.com/api/v1/webhook_confirmations/...` respondeu **303 → login AWS
+SSO** (painel interno); seguindo o redirect, isso virava um 200 de HTML que seria lido como
+"confirmado". O staging (`admin.staging.totalpass.com`) responde como a doc (`404 {"message":"not
+found"}`).
+
+**Confirmado ao vivo** (unidade de teste do portal `DVP-HML-266`, placeId `68362`): autenticação,
+cadastro do webhook e reconexão (atualiza o mesmo webhook). O `GET /partner/webhook/get` real
+devolve uma lista `{id, url, webhookType, ...}`, diferente da doc — o adapter aceita os dois.
+
+**Pendente com o TotalPass**: como simular um check-in real na unidade de teste; host de produção
+da confirmação e se ela exige autenticação; assinatura/reenvio/timeout do webhook deles;
+homologação para entrar na lista de integradores.
 
 ## Régua de relacionamento (WhatsApp) — Fase 3 do roadmap
 

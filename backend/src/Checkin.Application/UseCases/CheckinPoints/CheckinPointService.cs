@@ -5,6 +5,7 @@ using Checkin.Application.Ports;
 using Checkin.Application.Ports.Integrations;
 using Checkin.Application.Ports.Repositories;
 using Checkin.Domain.Entities;
+using Checkin.Domain.Enums;
 
 namespace Checkin.Application.UseCases.CheckinPoints;
 
@@ -13,14 +14,19 @@ public class CheckinPointService
     private readonly ICheckinPointRepository _repository;
     private readonly IWellhubBookingGateway _wellhubBookingGateway;
     private readonly ICurrentTenantContext _tenantContext;
+    private readonly ITotalPassGateway? _totalPassGateway;
 
     public CheckinPointService(
-        ICheckinPointRepository repository, IWellhubBookingGateway wellhubBookingGateway, ICurrentTenantContext tenantContext)
+        ICheckinPointRepository repository, IWellhubBookingGateway wellhubBookingGateway, ICurrentTenantContext tenantContext,
+        ITotalPassGateway? totalPassGateway = null)
     {
         _repository = repository;
         _wellhubBookingGateway = wellhubBookingGateway;
         _tenantContext = tenantContext;
+        _totalPassGateway = totalPassGateway;
     }
+
+    public const string TotalPassWebhookPathPrefix = "/api/integrations/totalpass/checkins/";
 
     public async Task<IReadOnlyList<CheckinPointDto>> ListAsync(CancellationToken ct = default)
     {
@@ -30,10 +36,15 @@ public class CheckinPointService
 
     public async Task<CheckinPointDto> CreateAsync(UpsertCheckinPointRequest request, CancellationToken ct = default)
     {
-        var existing = await _repository.GetByExternalIdAsync(request.App, request.ExternalId, ct);
-        if (existing is not null)
+        // TotalPass: o identificador é preenchido sozinho na conexão (id da unidade lá), então
+        // pode chegar vazio aqui — sem checagem de duplicidade nesse caso.
+        if (!string.IsNullOrWhiteSpace(request.ExternalId))
         {
-            throw new ConflictException("Já existe um ponto de check-in cadastrado com este identificador para este aplicativo.");
+            var existing = await _repository.GetByExternalIdAsync(request.App, request.ExternalId, ct);
+            if (existing is not null)
+            {
+                throw new ConflictException("Já existe um ponto de check-in cadastrado com este identificador para este aplicativo.");
+            }
         }
 
         var point = new CheckinPoint
@@ -45,6 +56,7 @@ public class CheckinPointService
             Active = request.Active,
             PricePerCheckinCents = request.PricePerCheckinCents
         };
+        ApplyTotalPassKey(point, request.TotalPassPlaceApiKey);
         var created = await _repository.CreateAsync(point, ct);
         return ToDto(created);
     }
@@ -59,10 +71,64 @@ public class CheckinPointService
         point.Name = request.Name;
         point.Active = request.Active;
         point.PricePerCheckinCents = request.PricePerCheckinCents;
+        ApplyTotalPassKey(point, request.TotalPassPlaceApiKey);
 
         await _repository.UpdateAsync(point, ct);
         return ToDto(point);
     }
+
+    /// <summary>
+    /// "Conectar ao TotalPass": autentica a unidade com a place_api_key dela + a chave de
+    /// integrador do OmniClub e cadastra no TotalPass a URL de webhook desta unidade. Pode ser
+    /// repetido sem efeito colateral (atualiza a URL em vez de duplicar). Preenche o identificador
+    /// com o id da unidade no TotalPass e guarda o nome dela, pra conferência.
+    /// </summary>
+    public async Task<CheckinPointDto> ConnectTotalPassAsync(string id, CancellationToken ct = default)
+    {
+        var point = await _repository.GetByIdAsync(_tenantContext.TenantId, id, ct)
+            ?? throw new NotFoundException("Ponto de check-in não encontrado.");
+        if (point.App != IntegrationApp.TotalPass)
+            throw new ArgumentException("Este ponto de check-in não é do TotalPass.");
+        if (string.IsNullOrWhiteSpace(point.TotalPassPlaceApiKey))
+            throw new ArgumentException("Informe a chave da unidade no TotalPass (place_api_key) antes de conectar.");
+        if (_totalPassGateway is null || !_totalPassGateway.IsConfigured)
+            throw new ConflictException("Integração TotalPass não configurada no servidor (falta a chave de integrador do OmniClub).");
+
+        point.TotalPassWebhookKey ??= NewWebhookKey();
+
+        TotalPassConnection connection;
+        try
+        {
+            connection = await _totalPassGateway.ConnectPlaceAsync(point.TotalPassPlaceApiKey, TotalPassWebhookPathPrefix + point.TotalPassWebhookKey, ct);
+        }
+        catch (TotalPassException ex)
+        {
+            throw new ConflictException(ex.Message);
+        }
+
+        point.TotalPassConnectedAt = DateTime.UtcNow;
+        point.TotalPassPlaceName = connection.PlaceName;
+        if (!string.IsNullOrWhiteSpace(connection.PlaceId)) point.ExternalId = connection.PlaceId;
+        if (string.IsNullOrWhiteSpace(point.Name) && connection.PlaceName is not null) point.Name = connection.PlaceName;
+
+        await _repository.UpdateAsync(point, ct);
+        return ToDto(point);
+    }
+
+    /// <summary>Chave nova (ou trocada) → precisa reconectar: a conexão anterior foi feita com a
+    /// chave antiga. Também garante a chave secreta da URL de webhook.</summary>
+    private static void ApplyTotalPassKey(CheckinPoint point, string? placeApiKey)
+    {
+        if (point.App != IntegrationApp.TotalPass) return;
+        point.TotalPassWebhookKey ??= NewWebhookKey();
+
+        var key = placeApiKey?.Trim();
+        if (string.IsNullOrEmpty(key) || key == point.TotalPassPlaceApiKey) return;
+        point.TotalPassPlaceApiKey = key;
+        point.TotalPassConnectedAt = null;
+    }
+
+    private static string NewWebhookKey() => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
 
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
@@ -96,5 +162,12 @@ public class CheckinPointService
     private static CheckinPointDto ToDto(CheckinPoint p) => new(
         p.Id, p.App, p.ExternalId, p.Name, p.Active, p.CreatedAt,
         p.Products.Select(pr => new WellhubProductDto(pr.ProductId, pr.Name, pr.Virtual)).ToList(),
-        p.PricePerCheckinCents);
+        p.PricePerCheckinCents,
+        p.App == IntegrationApp.TotalPass
+            ? new TotalPassStatusDto(
+                !string.IsNullOrWhiteSpace(p.TotalPassPlaceApiKey),
+                p.TotalPassPlaceApiKey is { Length: > 4 } k ? "…" + k[^4..] : null,
+                p.TotalPassConnectedAt,
+                p.TotalPassPlaceName)
+            : null);
 }

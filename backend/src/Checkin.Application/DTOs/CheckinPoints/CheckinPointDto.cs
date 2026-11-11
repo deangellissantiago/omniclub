@@ -11,4 +11,8 @@ public record CheckinPointDto(
     bool Active,
     DateTime CreatedAt,
     IReadOnlyList<WellhubProductDto> Products,
-    int? PricePerCheckinCents);
+    int? PricePerCheckinCents,
+    TotalPassStatusDto? TotalPass = null);
+
+/// <summary>Situação da integração TotalPass da unidade — nunca expõe a place_api_key inteira.</summary>
+public record TotalPassStatusDto(bool HasPlaceApiKey, string? PlaceApiKeyHint, DateTime? ConnectedAt, string? PlaceName);

@@ -88,7 +88,7 @@ public class OutboundWebhookService
         if (!IsConfigured(tenant)) return;
         if (await _deliveries.ExistsForEventAsync(record.TenantId, record.Id, ct)) return;
 
-        var payload = BuildPayload(CheckinApprovedEvent, record.Id, record.OccurredAt, record.App.ToString(),
+        var payload = BuildPayload(CheckinApprovedEvent, record.Id, record.OccurredAt, record.App,
             record.ExternalMemberRef, student, point);
 
         await _deliveries.CreateAsync(new OutboundWebhookDelivery
@@ -233,7 +233,7 @@ public class OutboundWebhookService
 
         var testPoint = new CheckinPoint { App = IntegrationApp.Wellhub, ExternalId = "000000", Name = "Unidade de teste", PricePerCheckinCents = 2500 };
         var testStudent = new Student { Name = "Atleta de Teste", Email = "teste@omniclub.run", Phone = "+5531999999999", WellhubMemberId = "0000000000000" };
-        var payload = BuildPayload(TestEvent, $"teste-{Guid.NewGuid()}", DateTime.UtcNow, IntegrationApp.Wellhub.ToString(),
+        var payload = BuildPayload(TestEvent, $"teste-{Guid.NewGuid()}", DateTime.UtcNow, IntegrationApp.Wellhub,
             testStudent.WellhubMemberId, testStudent, testPoint);
 
         var signature = ComputeSignature(payload, tenant.OutboundWebhookSecret!);
@@ -296,19 +296,24 @@ public class OutboundWebhookService
     private static bool IsConfigured(Tenant? tenant) =>
         !string.IsNullOrWhiteSpace(tenant?.OutboundWebhookUrl) && !string.IsNullOrWhiteSpace(tenant.OutboundWebhookSecret);
 
+    /// <param name="memberRef">Id do membro no app de origem do check-in (Wellhub ID ou código
+    /// TotalPass). Os ids do aluno no outro app também vão, se ele já estiver vinculado — ajudam o
+    /// destino a achar o atleta.</param>
     private static string BuildPayload(
-        string eventType, string eventId, DateTime occurredAtUtc, string origin, string? wellhubId, Student? student, CheckinPoint point)
+        string eventType, string eventId, DateTime occurredAtUtc, IntegrationApp app, string? memberRef, Student? student, CheckinPoint point)
     {
         var payload = new CheckinWebhookPayloadOut(
             Id: eventId,
             Tipo: eventType,
             AtletaEmail: student?.Email,
             OcorridoEm: ToSaoPaulo(occurredAtUtc),
-            Origem: origin,
+            Origem: app.ToString(),
             ValorRepasse: point.PricePerCheckinCents is int cents ? new decimal(cents, 0, 0, false, 2) : null,
-            WellhubId: wellhubId,
+            WellhubId: app == IntegrationApp.Wellhub ? memberRef ?? student?.WellhubMemberId : student?.WellhubMemberId,
+            TotalpassId: app == IntegrationApp.TotalPass ? memberRef ?? student?.TotalPassMemberId : student?.TotalPassMemberId,
             AtletaNome: student?.Name,
             AtletaTelefone: student?.Phone,
+            AtletaCpf: string.IsNullOrWhiteSpace(student?.Document) ? null : new string(student.Document.Where(char.IsDigit).ToArray()),
             Unidade: new UnidadeOut(point.ExternalId, point.Name));
         return JsonSerializer.Serialize(payload, PayloadJson);
     }
@@ -345,8 +350,10 @@ public class OutboundWebhookService
         [property: JsonPropertyName("origem")] string Origem,
         [property: JsonPropertyName("valorRepasse")] decimal? ValorRepasse,
         [property: JsonPropertyName("wellhubId")] string? WellhubId,
+        [property: JsonPropertyName("totalpassId")] string? TotalpassId,
         [property: JsonPropertyName("atletaNome")] string? AtletaNome,
         [property: JsonPropertyName("atletaTelefone")] string? AtletaTelefone,
+        [property: JsonPropertyName("atletaCpf")] string? AtletaCpf,
         [property: JsonPropertyName("unidade")] UnidadeOut Unidade);
 
     private record UnidadeOut(

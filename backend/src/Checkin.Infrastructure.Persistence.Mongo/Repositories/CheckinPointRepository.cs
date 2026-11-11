@@ -17,6 +17,9 @@ public class CheckinPointRepository : ICheckinPointRepository
     public async Task<CheckinPoint?> GetByExternalIdAsync(IntegrationApp app, string externalId, CancellationToken ct = default) =>
         await _context.CheckinPoints.Find(p => p.App == app && p.ExternalId == externalId).FirstOrDefaultAsync(ct);
 
+    public async Task<CheckinPoint?> GetByTotalPassWebhookKeyAsync(string webhookKey, CancellationToken ct = default) =>
+        await _context.CheckinPoints.Find(p => p.App == IntegrationApp.TotalPass && p.TotalPassWebhookKey == webhookKey).FirstOrDefaultAsync(ct);
+
     public async Task<IReadOnlyList<CheckinPoint>> ListAsync(string tenantId, CancellationToken ct = default) =>
         await _context.CheckinPoints.Find(p => p.TenantId == tenantId).SortByDescending(p => p.CreatedAt).ToListAsync(ct);
 

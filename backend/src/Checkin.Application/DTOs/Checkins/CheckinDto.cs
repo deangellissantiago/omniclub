@@ -10,7 +10,8 @@ public record CheckinDto(
     string? CheckinPointName,
     IntegrationApp App,
     DateTime OccurredAt,
-    CheckinStatus Status);
+    CheckinStatus Status,
+    string? RejectionReason = null);
 
 /// <summary>Dados do usuário que vêm no próprio webhook de check-in — usados para pré-registrar
 /// o aluno automaticamente quando o Wellhub ID ainda não está cadastrado (ver e-mail do Wellhub

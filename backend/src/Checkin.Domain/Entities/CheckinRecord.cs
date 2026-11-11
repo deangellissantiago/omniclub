@@ -27,6 +27,10 @@ public class CheckinRecord
     public CheckinStatus Status { get; set; } = CheckinStatus.Approved;
     public DateTime? ApprovedAt { get; set; }
 
+    /// <summary>Por que o app de origem recusou a validação (ex.: TotalPass "check-in expirado"),
+    /// quando <see cref="Status"/> é Rejected e o motivo é conhecido.</summary>
+    public string? RejectionReason { get; set; }
+
     /// <summary>Payload bruto recebido do app de origem, para auditoria/depuração.</summary>
     public string? RawPayload { get; set; }
 

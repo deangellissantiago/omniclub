@@ -19,6 +19,9 @@ public class FakeCheckinPointRepository : ICheckinPointRepository
     public Task<CheckinPoint?> GetByExternalIdAsync(IntegrationApp app, string externalId, CancellationToken ct = default) =>
         Task.FromResult(Points.FirstOrDefault(p => p.App == app && p.ExternalId == externalId));
 
+    public Task<CheckinPoint?> GetByTotalPassWebhookKeyAsync(string webhookKey, CancellationToken ct = default) =>
+        Task.FromResult(Points.FirstOrDefault(p => p.App == IntegrationApp.TotalPass && p.TotalPassWebhookKey == webhookKey));
+
     public Task<IReadOnlyList<CheckinPoint>> ListAsync(string tenantId, CancellationToken ct = default) =>
         Task.FromResult((IReadOnlyList<CheckinPoint>)Points.Where(p => p.TenantId == tenantId).ToList());
 
@@ -42,6 +45,13 @@ public class FakeStudentRepository : IStudentRepository
 
     public Task<Student?> GetByWellhubMemberIdAsync(string wellhubMemberId, CancellationToken ct = default) =>
         Task.FromResult(Students.FirstOrDefault(s => s.WellhubMemberId == wellhubMemberId));
+
+    public Task<Student?> GetByTotalPassMemberIdAsync(string tenantId, string totalPassMemberId, CancellationToken ct = default) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.TenantId == tenantId && s.TotalPassMemberId == totalPassMemberId));
+
+    public Task<Student?> GetByDocumentAsync(string tenantId, string documentDigits, CancellationToken ct = default) =>
+        Task.FromResult(Students.FirstOrDefault(s => s.TenantId == tenantId && s.Document != null
+            && new string(s.Document.Where(char.IsDigit).ToArray()) == documentDigits));
 
     public Task<IReadOnlyList<Student>> ListAsync(string tenantId, CancellationToken ct = default) =>
         Task.FromResult((IReadOnlyList<Student>)Students.Where(s => s.TenantId == tenantId).ToList());

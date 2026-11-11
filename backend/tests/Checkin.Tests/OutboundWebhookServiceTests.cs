@@ -247,4 +247,24 @@ public class OutboundWebhookServiceTests
 
         Assert.Equal(OutboundWebhookStatus.Failed, Assert.Single(failed).Status);
     }
+
+    [Fact]
+    public async Task TotalPass_checkin_sends_totalpass_id_and_cpf_instead_of_wellhub_id()
+    {
+        var (record, student, point) = ApprovedCheckin();
+        record.App = IntegrationApp.TotalPass;
+        record.ExternalMemberRef = "EQ2B3FBK";
+        student.WellhubMemberId = null;
+        student.TotalPassMemberId = "EQ2B3FBK";
+        student.Document = "668.445.636-80";
+
+        await BuildService().EnqueueCheckinApprovedAsync(record, student, point);
+
+        using var json = JsonDocument.Parse(Assert.Single(_deliveries.Deliveries).Payload);
+        var root = json.RootElement;
+        Assert.Equal("TotalPass", root.GetProperty("origem").GetString());
+        Assert.Equal("EQ2B3FBK", root.GetProperty("totalpassId").GetString());
+        Assert.Equal(JsonValueKind.Null, root.GetProperty("wellhubId").ValueKind);
+        Assert.Equal("66844563680", root.GetProperty("atletaCpf").GetString());
+    }
 }

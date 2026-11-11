@@ -17,6 +17,19 @@ public class StudentRepository : IStudentRepository
     public async Task<Student?> GetByWellhubMemberIdAsync(string wellhubMemberId, CancellationToken ct = default) =>
         await _context.Students.Find(s => s.WellhubMemberId == wellhubMemberId).FirstOrDefaultAsync(ct);
 
+    public async Task<Student?> GetByTotalPassMemberIdAsync(string tenantId, string totalPassMemberId, CancellationToken ct = default) =>
+        await _context.Students.Find(s => s.TenantId == tenantId && s.TotalPassMemberId == totalPassMemberId).FirstOrDefaultAsync(ct);
+
+    /// <summary>O CPF pode ter sido digitado com ou sem máscara no cadastro manual — compara só os
+    /// dígitos, em memória, dentro do tenant (volume de alunos por tenant é pequeno).</summary>
+    public async Task<Student?> GetByDocumentAsync(string tenantId, string documentDigits, CancellationToken ct = default)
+    {
+        var withDocument = await _context.Students
+            .Find(s => s.TenantId == tenantId && s.Document != null && s.Document != "")
+            .ToListAsync(ct);
+        return withDocument.FirstOrDefault(s => new string(s.Document!.Where(char.IsDigit).ToArray()) == documentDigits);
+    }
+
     public async Task<IReadOnlyList<Student>> ListAsync(string tenantId, CancellationToken ct = default) =>
         await _context.Students.Find(s => s.TenantId == tenantId).SortByDescending(s => s.CreatedAt).ToListAsync(ct);
 

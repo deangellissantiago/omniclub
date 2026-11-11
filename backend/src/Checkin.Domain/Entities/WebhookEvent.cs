@@ -31,6 +31,11 @@ public class WebhookEvent
     /// <summary>Corpo cru exatamente como recebido — o processamento desserializa isto depois.</summary>
     public string RawPayload { get; set; } = string.Empty;
 
+    /// <summary>Chave da URL por onde o evento chegou, quando o provedor usa uma URL por unidade
+    /// (TotalPass: /api/integrations/totalpass/checkins/{chave} — ver
+    /// CheckinPoint.TotalPassWebhookKey). Nulo para o Wellhub (URL única).</summary>
+    public string? RouteKey { get; set; }
+
     public WebhookEventStatus Status { get; set; } = WebhookEventStatus.Pending;
 
     public int Attempts { get; set; }

@@ -91,7 +91,18 @@ public class WebhookProcessingService
     /// que ficam num loop drenando a fila até ela esvaziar).</summary>
     private static TimeSpan Backoff(int attempts) => TimeSpan.FromSeconds(Math.Min(10 * Math.Pow(2, attempts - 1), 300));
 
-    private Task DispatchAsync(WebhookEvent evt, CancellationToken ct) => evt.EventType switch
+    public const string TotalPassProvider = "TotalPass";
+    public const string TotalPassCheckinCreated = "CHECK_IN_CREATED";
+
+    private Task DispatchAsync(WebhookEvent evt, CancellationToken ct) => (evt.Provider, evt.EventType) switch
+    {
+        (TotalPassProvider, TotalPassCheckinCreated) => HandleTotalPassCheckinAsync(evt, ct),
+        // Outros eventos do TotalPass (o único documentado hoje é CHECK_IN_CREATED): só confirma.
+        (TotalPassProvider, _) => Task.CompletedTask,
+        _ => DispatchWellhubAsync(evt, ct),
+    };
+
+    private Task DispatchWellhubAsync(WebhookEvent evt, CancellationToken ct) => evt.EventType switch
     {
         "checkin" => HandleCheckinAsync(evt.RawPayload, ct),
         "booking-requested" => HandleBookingRequestedAsync(evt.RawPayload, ct),
@@ -121,6 +132,24 @@ public class WebhookProcessingService
         var userInfo = new WellhubUserInfo(data.User.FirstName, data.User.LastName, data.User.Email, data.User.PhoneNumber);
         await _checkinService.RegisterWellhubCheckinAsync(
             data.Gym.Id.ToString(), data.User.UniqueToken, externalCheckinId, occurredAt, rawBody, userInfo, ct);
+    }
+
+    private async Task HandleTotalPassCheckinAsync(WebhookEvent evt, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Deserialize<TotalPassCheckinPayload>(evt.RawPayload, JsonOptions);
+        if (evt.RouteKey is null || string.IsNullOrWhiteSpace(payload?.Endpoint))
+        {
+            _logger.LogWarning("Evento TotalPass {Id} sem URL de confirmação ou sem chave de rota — ignorado.", evt.Id);
+            return;
+        }
+
+        var user = payload.User;
+        var data = new TotalPassCheckinData(
+            payload.Endpoint,
+            payload.CheckIn?.StartedAt?.UtcDateTime ?? evt.ReceivedAt,
+            user?.Code, user?.Name, user?.Email, user?.Phone, user?.DocumentNumber, user?.DocumentType);
+
+        await _checkinService.RegisterTotalPassCheckinAsync(evt.RouteKey, data, evt.RawPayload, ct);
     }
 
     private async Task HandleBookingRequestedAsync(string rawBody, CancellationToken ct)

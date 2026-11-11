@@ -62,7 +62,12 @@ export function CheckinsPage() {
                 <td>{c.checkinPointName ?? "-"}</td>
                 <td><AppBadge app={c.app} /></td>
                 <td>{formatDateTime(c.occurredAt)}</td>
-                <td><StatusBadge status={c.status} /></td>
+                <td>
+                  <StatusBadge status={c.status} />
+                  {c.status === "Rejected" && c.rejectionReason && (
+                    <div className="muted" style={{ fontSize: "0.78rem", marginTop: 4, maxWidth: 260 }}>{c.rejectionReason}</div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

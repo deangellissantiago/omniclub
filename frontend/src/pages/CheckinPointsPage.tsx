@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  connectTotalPass,
   createCheckinPoint,
   deleteCheckinPoint,
   listCheckinPoints,
@@ -29,6 +30,10 @@ export function CheckinPointsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [placeKeyText, setPlaceKeyText] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  const isTotalPass = form.app === "TotalPass";
+  const editingPoint = points.find((p) => p.id === editingId);
 
   async function refresh() {
     setPoints(await listCheckinPoints());
@@ -42,12 +47,14 @@ export function CheckinPointsPage() {
     setEditingId(point.id);
     setForm({ app: point.app, externalId: point.externalId, name: point.name, active: point.active });
     setPriceText(centsToReaisInput(point.pricePerCheckinCents));
+    setPlaceKeyText("");
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setPriceText("");
+    setPlaceKeyText("");
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -55,7 +62,11 @@ export function CheckinPointsPage() {
     setError(null);
     setLoading(true);
     try {
-      const payload = { ...form, pricePerCheckinCents: reaisInputToCents(priceText) };
+      const payload = {
+        ...form,
+        pricePerCheckinCents: reaisInputToCents(priceText),
+        totalPassPlaceApiKey: isTotalPass && placeKeyText.trim() ? placeKeyText.trim() : null,
+      };
       if (editingId) {
         await updateCheckinPoint(editingId, payload);
       } else {
@@ -77,6 +88,21 @@ export function CheckinPointsPage() {
       await refresh();
     } catch (err) {
       setError(extractErrorMessage(err));
+    }
+  }
+
+  async function handleConnectTotalPass(point: CheckinPoint) {
+    setError(null);
+    setNotice(null);
+    setSyncingId(point.id);
+    try {
+      const updated = await connectTotalPass(point.id);
+      await refresh();
+      setNotice(`"${updated.name}" conectada ao TotalPass${updated.totalPass?.placeName ? ` (unidade ${updated.totalPass.placeName})` : ""}. Os check-ins passam a chegar automaticamente.`);
+    } catch (err) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setSyncingId(null);
     }
   }
 
@@ -109,18 +135,35 @@ export function CheckinPointsPage() {
             Aplicativo *
             <select value={form.app} onChange={(e) => setForm({ ...form, app: e.target.value as IntegrationApp })}>
               <option value="Wellhub">Wellhub</option>
-              <option value="TotalPass" disabled>TotalPass (em breve)</option>
+              <option value="TotalPass">TotalPass</option>
             </select>
           </label>
-          <label>
-            Identificador no app *
-            <input
-              value={form.externalId}
-              onChange={(e) => setForm({ ...form, externalId: e.target.value })}
-              placeholder="Ex.: 500977"
-              required
-            />
-          </label>
+          {isTotalPass ? (
+            <label>
+              Chave da unidade no TotalPass (place_api_key){editingPoint?.totalPass?.hasPlaceApiKey ? "" : " *"}
+              <input
+                value={placeKeyText}
+                onChange={(e) => setPlaceKeyText(e.target.value)}
+                placeholder={
+                  editingPoint?.totalPass?.placeApiKeyHint
+                    ? `Manter a atual (${editingPoint.totalPass.placeApiKeyHint})`
+                    : "Gerada pela academia no painel do TotalPass"
+                }
+                required={!editingPoint?.totalPass?.hasPlaceApiKey}
+                autoComplete="off"
+              />
+            </label>
+          ) : (
+            <label>
+              Identificador no app *
+              <input
+                value={form.externalId}
+                onChange={(e) => setForm({ ...form, externalId: e.target.value })}
+                placeholder="Ex.: 500977"
+                required
+              />
+            </label>
+          )}
           <label>
             Nome *
             <input
@@ -153,7 +196,14 @@ export function CheckinPointsPage() {
             )}
           </div>
         </form>
+        {isTotalPass && (
+          <p className="muted" style={{ margin: "0.9rem 0 0" }}>
+            Depois de cadastrar, clique em <b>Conectar ao TotalPass</b> na lista abaixo: o OmniClub valida a chave e passa a
+            receber os check-ins desta unidade automaticamente. O identificador é preenchido sozinho.
+          </p>
+        )}
         {error && <p className="error-text">{error}</p>}
+        {notice && <p className="notice-text" style={{ margin: "0.9rem 0 0" }}>{notice}</p>}
       </section>
 
       <section className="panel panel-table">
@@ -165,7 +215,7 @@ export function CheckinPointsPage() {
               <th>App</th>
               <th>Identificador</th>
               <th>Valor/check-in</th>
-              <th>Produtos</th>
+              <th>Integração</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -182,9 +232,29 @@ export function CheckinPointsPage() {
               <tr key={p.id}>
                 <td className="cell-strong">{p.name}</td>
                 <td><AppBadge app={p.app} /></td>
-                <td>{p.externalId}</td>
+                <td className={p.externalId ? undefined : "muted"}>{p.externalId || "—"}</td>
                 <td className={p.pricePerCheckinCents == null ? "muted" : undefined}>{formatMoneyCents(p.pricePerCheckinCents)}</td>
                 <td>
+                  {p.app === "TotalPass" ? (
+                    <div className="product-chips">
+                      {p.totalPass?.connectedAt ? (
+                        <span className="badge badge-approved" title={`Conectado em ${new Date(p.totalPass.connectedAt).toLocaleString("pt-BR")}`}>
+                          <span className="dot" />
+                          Conectado{p.totalPass.placeName ? ` · ${p.totalPass.placeName}` : ""}
+                        </span>
+                      ) : (
+                        <span className="badge badge-pending">
+                          <span className="dot" />
+                          {p.totalPass?.hasPlaceApiKey ? "Não conectado" : "Sem chave da unidade"}
+                        </span>
+                      )}
+                      {p.totalPass?.hasPlaceApiKey && (
+                        <button type="button" className="btn-link" disabled={syncingId === p.id} onClick={() => handleConnectTotalPass(p)}>
+                          {syncingId === p.id ? "Conectando..." : p.totalPass.connectedAt ? "Reconectar" : "Conectar ao TotalPass"}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
                   <div className="product-chips">
                     {p.products.length === 0 ? (
                       <span className="muted">Nenhum produto vinculado</span>
@@ -206,6 +276,7 @@ export function CheckinPointsPage() {
                       </button>
                     )}
                   </div>
+                  )}
                 </td>
                 <td><ActiveBadge active={p.active} /></td>
                 <td className="actions-cell">

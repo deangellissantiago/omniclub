@@ -38,6 +38,11 @@ services:
       # ver seu README). Vazio = régua de relacionamento desligada (RetentionAlertHostedService
       # só loga "pulado", não quebra o resto da API). Aponte pro nome do container na rede
       # whatsapp_shared (ver abaixo), não pra localhost — o backend roda dentro do container.
+      # TotalPass: chave de integrador do OmniClub (portal developers.totalpass.com). Vazia =
+      # integração TotalPass desligada. A URL pública é a base do webhook cadastrado em cada
+      # unidade (/api/integrations/totalpass/checkins/{chave}) — precisa ser https e acessível.
+      TotalPass__PartnerApiKey: ${TOTALPASS_PARTNER_API_KEY:-}
+      TotalPass__WebhookBaseUrl: ${FRONTEND_URL:-http://localhost:5271}
       WhatsApp__BaseUrl: ${WHATSAPP_SERVICE_BASE_URL:-}
       WhatsApp__ApiKey: ${WHATSAPP_SERVICE_API_KEY:-}
       RetentionAlerts__IntervalHours: ${RETENTION_ALERTS_INTERVAL_HOURS:-24}
