@@ -7,33 +7,46 @@ import {
   syncCheckinPointProducts,
   updateCheckinPoint,
 } from "../api/checkinPoints";
-import type { CheckinPoint, IntegrationApp, UpsertCheckinPoint } from "../api/types";
+import type { CheckinPoint } from "../api/types";
 import { extractErrorMessage } from "../api/client";
 import { ActiveBadge, AppBadge, TableEmpty } from "../components/ui";
 import { centsToReaisInput, formatMoneyCents, reaisInputToCents } from "../lib/money";
 
-const EMPTY_FORM: UpsertCheckinPoint = {
-  app: "Wellhub",
-  externalId: "",
+/** Estado do formulário — preços como texto em reais (ex.: "1,50"), convertidos só no submit
+ * pra não perder o que a pessoa está digitando (ex.: "1," no meio de digitar "1,50"). */
+interface PointForm {
+  name: string;
+  active: boolean;
+  wellhubEnabled: boolean;
+  wellhubGymId: string;
+  wellhubPrice: string;
+  totalPassEnabled: boolean;
+  totalPassKey: string;
+  totalPassPrice: string;
+}
+
+const EMPTY_FORM: PointForm = {
   name: "",
   active: true,
-  pricePerCheckinCents: null,
+  wellhubEnabled: true,
+  wellhubGymId: "",
+  wellhubPrice: "",
+  totalPassEnabled: false,
+  totalPassKey: "",
+  totalPassPrice: "",
 };
 
 export function CheckinPointsPage() {
   const [points, setPoints] = useState<CheckinPoint[]>([]);
-  const [form, setForm] = useState<UpsertCheckinPoint>(EMPTY_FORM);
-  // Texto do input de preço em reais (ex.: "1,50") — convertido pra centavos só no submit,
-  // pra não perder o que a pessoa está digitando (ex.: "1," no meio de digitar "1,50").
-  const [priceText, setPriceText] = useState("");
+  const [form, setForm] = useState<PointForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [placeKeyText, setPlaceKeyText] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
-  const isTotalPass = form.app === "TotalPass";
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   const editingPoint = points.find((p) => p.id === editingId);
+  const keyHint = editingPoint?.totalPass?.placeApiKeyHint;
 
   async function refresh() {
     setPoints(await listCheckinPoints());
@@ -45,35 +58,56 @@ export function CheckinPointsPage() {
 
   function startEdit(point: CheckinPoint) {
     setEditingId(point.id);
-    setForm({ app: point.app, externalId: point.externalId, name: point.name, active: point.active });
-    setPriceText(centsToReaisInput(point.pricePerCheckinCents));
-    setPlaceKeyText("");
+    setError(null);
+    setNotice(null);
+    setForm({
+      name: point.name,
+      active: point.active,
+      wellhubEnabled: point.apps.includes("Wellhub"),
+      wellhubGymId: point.externalId,
+      wellhubPrice: centsToReaisInput(point.pricePerCheckinCents),
+      totalPassEnabled: point.apps.includes("TotalPass"),
+      totalPassKey: "",
+      totalPassPrice: centsToReaisInput(point.totalPass?.pricePerCheckinCents),
+    });
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(EMPTY_FORM);
-    setPriceText("");
-    setPlaceKeyText("");
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
+
+    if (!form.wellhubEnabled && !form.totalPassEnabled) {
+      setError("Ative pelo menos um app: Wellhub e/ou TotalPass.");
+      return;
+    }
+    const turningTotalPassOff = editingPoint?.apps.includes("TotalPass") && !form.totalPassEnabled;
+    if (turningTotalPassOff && !confirm("Desativar o TotalPass nesta unidade? A chave e a conexão com o TotalPass serão apagadas e os check-ins de lá deixam de ser recebidos.")) {
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
-        ...form,
-        pricePerCheckinCents: reaisInputToCents(priceText),
-        totalPassPlaceApiKey: isTotalPass && placeKeyText.trim() ? placeKeyText.trim() : null,
+        name: form.name.trim(),
+        active: form.active,
+        externalId: form.wellhubEnabled ? form.wellhubGymId.trim() : "",
+        pricePerCheckinCents: form.wellhubEnabled ? reaisInputToCents(form.wellhubPrice) : null,
+        totalPassEnabled: form.totalPassEnabled,
+        totalPassPlaceApiKey: form.totalPassEnabled && form.totalPassKey.trim() ? form.totalPassKey.trim() : null,
+        totalPassPricePerCheckinCents: form.totalPassEnabled ? reaisInputToCents(form.totalPassPrice) : null,
       };
-      if (editingId) {
-        await updateCheckinPoint(editingId, payload);
-      } else {
-        await createCheckinPoint(payload);
-      }
+      const saved = editingId ? await updateCheckinPoint(editingId, payload) : await createCheckinPoint(payload);
       cancelEdit();
       await refresh();
+      if (saved.totalPass && !saved.totalPass.connectedAt) {
+        setNotice(`"${saved.name}" salva. Falta clicar em "Conectar ao TotalPass" na lista abaixo para começar a receber os check-ins do TotalPass.`);
+      }
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -82,7 +116,7 @@ export function CheckinPointsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover este ponto de check-in?")) return;
+    if (!confirm("Remover esta unidade?")) return;
     try {
       await deleteCheckinPoint(id);
       await refresh();
@@ -91,32 +125,32 @@ export function CheckinPointsPage() {
     }
   }
 
-  async function handleConnectTotalPass(point: CheckinPoint) {
+  async function runRowAction(id: string, action: () => Promise<void>) {
     setError(null);
     setNotice(null);
-    setSyncingId(point.id);
+    setBusyId(id);
     try {
-      const updated = await connectTotalPass(point.id);
-      await refresh();
-      setNotice(`"${updated.name}" conectada ao TotalPass${updated.totalPass?.placeName ? ` (unidade ${updated.totalPass.placeName})` : ""}. Os check-ins passam a chegar automaticamente.`);
+      await action();
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
-      setSyncingId(null);
+      setBusyId(null);
     }
   }
 
-  async function handleSyncProducts(id: string) {
-    setError(null);
-    setSyncingId(id);
-    try {
-      await syncCheckinPointProducts(id);
+  function handleConnectTotalPass(point: CheckinPoint) {
+    runRowAction(point.id, async () => {
+      const updated = await connectTotalPass(point.id);
       await refresh();
-    } catch (err) {
-      setError(extractErrorMessage(err));
-    } finally {
-      setSyncingId(null);
-    }
+      setNotice(`"${updated.name}" conectada ao TotalPass${updated.totalPass?.placeName ? ` (unidade ${updated.totalPass.placeName})` : ""}. Os check-ins passam a chegar automaticamente.`);
+    });
+  }
+
+  function handleSyncProducts(point: CheckinPoint) {
+    runRowAction(point.id, async () => {
+      await syncCheckinPointProducts(point.id);
+      await refresh();
+    });
   }
 
   return (
@@ -124,46 +158,14 @@ export function CheckinPointsPage() {
       <div className="page-header">
         <h1>Pontos de check-in</h1>
         <p className="muted">
-          Cadastre as quadras e unidades onde os alunos podem fazer check-in pelos aplicativos parceiros.
+          Cadastre as unidades do clube e escolha por quais aplicativos cada uma recebe check-ins — Wellhub, TotalPass ou
+          os dois.
         </p>
       </div>
 
       <section className="panel">
-        <h2>{editingId ? "Editar ponto de check-in" : "Novo ponto de check-in"}</h2>
+        <h2>{editingId ? "Editar unidade" : "Nova unidade"}</h2>
         <form className="form-grid" onSubmit={handleSubmit}>
-          <label>
-            Aplicativo *
-            <select value={form.app} onChange={(e) => setForm({ ...form, app: e.target.value as IntegrationApp })}>
-              <option value="Wellhub">Wellhub</option>
-              <option value="TotalPass">TotalPass</option>
-            </select>
-          </label>
-          {isTotalPass ? (
-            <label>
-              Chave da unidade no TotalPass (place_api_key){editingPoint?.totalPass?.hasPlaceApiKey ? "" : " *"}
-              <input
-                value={placeKeyText}
-                onChange={(e) => setPlaceKeyText(e.target.value)}
-                placeholder={
-                  editingPoint?.totalPass?.placeApiKeyHint
-                    ? `Manter a atual (${editingPoint.totalPass.placeApiKeyHint})`
-                    : "Gerada pela academia no painel do TotalPass"
-                }
-                required={!editingPoint?.totalPass?.hasPlaceApiKey}
-                autoComplete="off"
-              />
-            </label>
-          ) : (
-            <label>
-              Identificador no app *
-              <input
-                value={form.externalId}
-                onChange={(e) => setForm({ ...form, externalId: e.target.value })}
-                placeholder="Ex.: 500977"
-                required
-              />
-            </label>
-          )}
           <label>
             Nome *
             <input
@@ -173,49 +175,104 @@ export function CheckinPointsPage() {
               required
             />
           </label>
-          <label>
-            Valor por check-in (R$)
-            <input
-              inputMode="decimal"
-              value={priceText}
-              onChange={(e) => setPriceText(e.target.value)}
-              placeholder="Ex.: 1,50"
-            />
-          </label>
           <label className="checkbox-label">
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-            Ativo
+            Ativa
           </label>
+
+          <div className={`integration-block${form.wellhubEnabled ? " on" : ""}`}>
+            <label className="checkbox-label integration-toggle">
+              <input
+                type="checkbox"
+                checked={form.wellhubEnabled}
+                onChange={(e) => setForm({ ...form, wellhubEnabled: e.target.checked })}
+              />
+              <AppBadge app="Wellhub" /> Aceita check-ins do Wellhub
+            </label>
+            {form.wellhubEnabled && (
+              <>
+                <label>
+                  Gym ID no Wellhub *
+                  <input
+                    value={form.wellhubGymId}
+                    onChange={(e) => setForm({ ...form, wellhubGymId: e.target.value })}
+                    placeholder="Ex.: 500977"
+                    required
+                  />
+                </label>
+                <label>
+                  Repasse por check-in (R$)
+                  <input
+                    inputMode="decimal"
+                    value={form.wellhubPrice}
+                    onChange={(e) => setForm({ ...form, wellhubPrice: e.target.value })}
+                    placeholder="Ex.: 15,00"
+                  />
+                </label>
+              </>
+            )}
+          </div>
+
+          <div className={`integration-block${form.totalPassEnabled ? " on" : ""}`}>
+            <label className="checkbox-label integration-toggle">
+              <input
+                type="checkbox"
+                checked={form.totalPassEnabled}
+                onChange={(e) => setForm({ ...form, totalPassEnabled: e.target.checked })}
+              />
+              <AppBadge app="TotalPass" /> Aceita check-ins do TotalPass
+            </label>
+            {form.totalPassEnabled && (
+              <>
+                <label>
+                  Chave da unidade no TotalPass (place_api_key){keyHint ? "" : " *"}
+                  <input
+                    value={form.totalPassKey}
+                    onChange={(e) => setForm({ ...form, totalPassKey: e.target.value })}
+                    placeholder={keyHint ? `Manter a atual (${keyHint})` : "Gerada pela academia no painel do TotalPass"}
+                    required={!keyHint}
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  Repasse por check-in (R$)
+                  <input
+                    inputMode="decimal"
+                    value={form.totalPassPrice}
+                    onChange={(e) => setForm({ ...form, totalPassPrice: e.target.value })}
+                    placeholder="Ex.: 20,00"
+                  />
+                </label>
+                <p className="muted integration-hint">
+                  Depois de salvar, clique em <b>Conectar ao TotalPass</b> na lista: o OmniClub valida a chave e passa a
+                  receber os check-ins desta unidade.
+                </p>
+              </>
+            )}
+          </div>
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={loading}>
-              {editingId ? "Salvar alterações" : "Cadastrar ponto"}
+              {editingId ? "Salvar alterações" : "Cadastrar unidade"}
             </button>
             {editingId && (
               <button type="button" className="btn-ghost" onClick={cancelEdit}>Cancelar</button>
             )}
           </div>
         </form>
-        {isTotalPass && (
-          <p className="muted" style={{ margin: "0.9rem 0 0" }}>
-            Depois de cadastrar, clique em <b>Conectar ao TotalPass</b> na lista abaixo: o OmniClub valida a chave e passa a
-            receber os check-ins desta unidade automaticamente. O identificador é preenchido sozinho.
-          </p>
-        )}
         {error && <p className="error-text">{error}</p>}
         {notice && <p className="notice-text" style={{ margin: "0.9rem 0 0" }}>{notice}</p>}
       </section>
 
       <section className="panel panel-table">
-        <h2>Pontos cadastrados</h2>
+        <h2>Unidades cadastradas</h2>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Nome</th>
-              <th>App</th>
-              <th>Identificador</th>
-              <th>Valor/check-in</th>
-              <th>Integração</th>
+              <th>Unidade</th>
+              <th>Apps</th>
+              <th>Wellhub</th>
+              <th>TotalPass</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -223,59 +280,56 @@ export function CheckinPointsPage() {
           <tbody>
             {points.length === 0 && (
               <TableEmpty
-                colSpan={7}
-                title="Nenhum ponto de check-in cadastrado ainda"
+                colSpan={6}
+                title="Nenhuma unidade cadastrada ainda"
                 hint="Cadastre as quadras/unidades do seu clube no formulário acima."
               />
             )}
             {points.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} className={p.id === editingId ? "row-selected" : undefined}>
                 <td className="cell-strong">{p.name}</td>
-                <td><AppBadge app={p.app} /></td>
-                <td className={p.externalId ? undefined : "muted"}>{p.externalId || "—"}</td>
-                <td className={p.pricePerCheckinCents == null ? "muted" : undefined}>{formatMoneyCents(p.pricePerCheckinCents)}</td>
                 <td>
-                  {p.app === "TotalPass" ? (
-                    <div className="product-chips">
-                      {p.totalPass?.connectedAt ? (
+                  <span className="app-badges">
+                    {p.apps.map((a) => <AppBadge key={a} app={a} />)}
+                  </span>
+                </td>
+                <td>
+                  {p.apps.includes("Wellhub") ? (
+                    <div className="cell-stack">
+                      <span>Gym ID <b>{p.externalId}</b> · {formatMoneyCents(p.pricePerCheckinCents)}</span>
+                      <div className="product-chips">
+                        {p.products.map((prod) => (
+                          <span key={prod.productId} className="badge badge-app-wellhub" title={`product_id ${prod.productId}`}>
+                            {prod.name}{prod.virtual ? " (virtual)" : ""}
+                          </span>
+                        ))}
+                        <button type="button" className="btn-link" disabled={busyId === p.id} onClick={() => handleSyncProducts(p)}>
+                          {busyId === p.id ? "Buscando..." : p.products.length ? "Atualizar produtos" : "Buscar produtos"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+                <td>
+                  {p.totalPass ? (
+                    <div className="cell-stack">
+                      {p.totalPass.connectedAt ? (
                         <span className="badge badge-approved" title={`Conectado em ${new Date(p.totalPass.connectedAt).toLocaleString("pt-BR")}`}>
                           <span className="dot" />
                           Conectado{p.totalPass.placeName ? ` · ${p.totalPass.placeName}` : ""}
                         </span>
                       ) : (
-                        <span className="badge badge-pending">
-                          <span className="dot" />
-                          {p.totalPass?.hasPlaceApiKey ? "Não conectado" : "Sem chave da unidade"}
-                        </span>
+                        <span className="badge badge-pending"><span className="dot" />Não conectado</span>
                       )}
-                      {p.totalPass?.hasPlaceApiKey && (
-                        <button type="button" className="btn-link" disabled={syncingId === p.id} onClick={() => handleConnectTotalPass(p)}>
-                          {syncingId === p.id ? "Conectando..." : p.totalPass.connectedAt ? "Reconectar" : "Conectar ao TotalPass"}
-                        </button>
-                      )}
+                      <span className="muted">{formatMoneyCents(p.totalPass.pricePerCheckinCents)} por check-in</span>
+                      <button type="button" className="btn-link" disabled={busyId === p.id} onClick={() => handleConnectTotalPass(p)}>
+                        {busyId === p.id ? "Conectando..." : p.totalPass.connectedAt ? "Reconectar" : "Conectar ao TotalPass"}
+                      </button>
                     </div>
                   ) : (
-                  <div className="product-chips">
-                    {p.products.length === 0 ? (
-                      <span className="muted">Nenhum produto vinculado</span>
-                    ) : (
-                      p.products.map((prod) => (
-                        <span key={prod.productId} className="badge badge-app-wellhub" title={`product_id ${prod.productId}`}>
-                          {prod.name}{prod.virtual ? " (virtual)" : ""}
-                        </span>
-                      ))
-                    )}
-                    {p.app === "Wellhub" && (
-                      <button
-                        type="button"
-                        className="btn-link"
-                        disabled={syncingId === p.id}
-                        onClick={() => handleSyncProducts(p.id)}
-                      >
-                        {syncingId === p.id ? "Buscando..." : "Buscar produtos"}
-                      </button>
-                    )}
-                  </div>
+                    <span className="muted">—</span>
                   )}
                 </td>
                 <td><ActiveBadge active={p.active} /></td>

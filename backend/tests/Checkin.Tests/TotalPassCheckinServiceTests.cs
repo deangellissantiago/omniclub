@@ -29,7 +29,7 @@ public class TotalPassCheckinServiceTests
     {
         _point = new CheckinPoint
         {
-            TenantId = TenantId, App = IntegrationApp.TotalPass, ExternalId = "68362", Name = "Dynamis Vila da Serra",
+            TenantId = TenantId, TotalPassPlaceId = "68362", Name = "Dynamis Vila da Serra",
             TotalPassPlaceApiKey = "place-key", TotalPassWebhookKey = WebhookKey
         };
         _points.Points.Add(_point);
@@ -130,7 +130,7 @@ public class TotalPassCheckinServiceTests
 
         var dto = await BuildPointService().ConnectTotalPassAsync(_point.Id);
 
-        Assert.Equal("68362", dto.ExternalId);
+        Assert.Equal("68362", dto.TotalPass!.PlaceId);
         Assert.NotNull(dto.TotalPass!.ConnectedAt);
         Assert.Equal("DVP-HML-266", dto.TotalPass.PlaceName);
         Assert.Equal("…-key", dto.TotalPass.PlaceApiKeyHint);
@@ -151,9 +151,57 @@ public class TotalPassCheckinServiceTests
     {
         _point.TotalPassConnectedAt = DateTime.UtcNow;
 
-        await BuildPointService().UpdateAsync(_point.Id, new(IntegrationApp.TotalPass, _point.ExternalId, _point.Name, true, null, "nova-chave"));
+        await BuildPointService().UpdateAsync(_point.Id, new(_point.Name, true, TotalPassEnabled: true, TotalPassPlaceApiKey: "nova-chave"));
 
         Assert.Equal("nova-chave", _point.TotalPassPlaceApiKey);
         Assert.Null(_point.TotalPassConnectedAt);
+    }
+
+    // ---- Unidade com os dois apps --------------------------------------------------------
+
+    [Fact]
+    public async Task One_unit_can_accept_wellhub_and_totalpass_with_separate_prices()
+    {
+        var dto = await BuildPointService().CreateAsync(new("Dynamis Pilar", true,
+            ExternalId: "804587", PricePerCheckinCents: 1500,
+            TotalPassEnabled: true, TotalPassPlaceApiKey: "chave-pilar", TotalPassPricePerCheckinCents: 2000));
+
+        Assert.Equal(new[] { IntegrationApp.Wellhub, IntegrationApp.TotalPass }, dto.Apps);
+        Assert.Equal("804587", dto.ExternalId);
+        Assert.Equal(1500, dto.PricePerCheckinCents);
+        Assert.Equal(2000, dto.TotalPass!.PricePerCheckinCents);
+
+        var point = _points.Points.Single(p => p.Id == dto.Id);
+        Assert.Equal(1500, point.PriceFor(IntegrationApp.Wellhub));
+        Assert.Equal(2000, point.PriceFor(IntegrationApp.TotalPass));
+        Assert.NotNull(point.TotalPassWebhookKey);
+    }
+
+    [Fact]
+    public async Task Unit_needs_at_least_one_app()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => BuildPointService().CreateAsync(new("Sem app", true)));
+    }
+
+    [Fact]
+    public async Task Turning_totalpass_off_clears_its_keys_but_keeps_wellhub()
+    {
+        _point.ExternalId = "547050";
+        _point.TotalPassConnectedAt = DateTime.UtcNow;
+
+        var dto = await BuildPointService().UpdateAsync(_point.Id, new(_point.Name, true, ExternalId: "547050", TotalPassEnabled: false));
+
+        Assert.Equal(new[] { IntegrationApp.Wellhub }, dto.Apps);
+        Assert.Null(dto.TotalPass);
+        Assert.Null(_point.TotalPassPlaceApiKey);
+        Assert.Null(_point.TotalPassWebhookKey); // webhook antigo no TotalPass passa a dar 404 aqui
+    }
+
+    [Fact]
+    public async Task Wellhub_gym_id_must_be_unique_across_units()
+    {
+        _points.Points.Add(new CheckinPoint { TenantId = TenantId, ExternalId = "500977", Name = "Santa Lúcia" });
+
+        await Assert.ThrowsAsync<ConflictException>(() => BuildPointService().CreateAsync(new("Outra", true, ExternalId: "500977")));
     }
 }

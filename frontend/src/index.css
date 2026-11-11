@@ -478,6 +478,25 @@ input, select { font-family: var(--font-ui); }
 .badge-app-wellhub   { background: var(--blue-100); color: var(--blue-700); }
 .badge-app-totalpass { background: var(--pink-100); color: var(--pink-700); }
 
+.app-badges { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
+
+.integration-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem 1rem;
+  align-items: end;
+  grid-column: 1 / -1;
+  background: var(--surface);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.integration-block.on { border-color: var(--periwinkle); background: var(--blue-50); }
+.integration-block .integration-toggle { grid-column: 1 / -1; padding-bottom: 0 !important; color: var(--ink) !important; font-size: 0.9rem !important; font-weight: 600 !important; }
+.integration-block .integration-hint { grid-column: 1 / -1; margin: -0.3rem 0 0; font-size: 0.82rem; }
+.cell-stack { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+
 .product-chips { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
 /* ---------- Formulários ---------- */

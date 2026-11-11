@@ -28,7 +28,7 @@ public class CheckinPointServiceTests
 
     private CheckinPoint SeedPoint()
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" };
         _points.Points.Add(point);
         return point;
     }
@@ -93,7 +93,7 @@ public class CheckinPointServiceTests
     public async Task Create_persists_the_price_per_checkin_when_informed()
     {
         var service = BuildService();
-        var request = new UpsertCheckinPointRequest(IntegrationApp.Wellhub, "999", "Nova unidade", true, PricePerCheckinCents: 350);
+        var request = new UpsertCheckinPointRequest("Nova unidade", true, ExternalId: "999", PricePerCheckinCents: 350);
 
         var dto = await service.CreateAsync(request);
 
@@ -104,7 +104,7 @@ public class CheckinPointServiceTests
     public async Task Create_leaves_price_unconfigured_when_omitted()
     {
         var service = BuildService();
-        var request = new UpsertCheckinPointRequest(IntegrationApp.Wellhub, "999", "Nova unidade", true);
+        var request = new UpsertCheckinPointRequest("Nova unidade", true, ExternalId: "999");
 
         var dto = await service.CreateAsync(request);
 
@@ -118,7 +118,7 @@ public class CheckinPointServiceTests
         point.PricePerCheckinCents = 100;
         var service = BuildService();
 
-        var dto = await service.UpdateAsync(point.Id, new UpsertCheckinPointRequest(point.App, point.ExternalId, point.Name, true, PricePerCheckinCents: 275));
+        var dto = await service.UpdateAsync(point.Id, new UpsertCheckinPointRequest(point.Name, true, ExternalId: point.ExternalId, PricePerCheckinCents: 275));
 
         Assert.Equal(275, dto.PricePerCheckinCents);
         Assert.Equal(275, point.PricePerCheckinCents);

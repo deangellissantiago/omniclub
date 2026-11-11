@@ -34,7 +34,7 @@ export function ClassesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const wellhubPoints = useMemo(() => points.filter((p) => p.app === "Wellhub" && p.active), [points]);
+  const wellhubPoints = useMemo(() => points.filter((p) => p.apps.includes("Wellhub") && p.active), [points]);
   const pointById = useMemo(() => new Map(points.map((p) => [p.id, p])), [points]);
   const selectedPoint = pointById.get(classForm.checkinPointId);
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;

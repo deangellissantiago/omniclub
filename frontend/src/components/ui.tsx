@@ -224,7 +224,16 @@ export function ActiveBadge({ active }: { active: boolean }) {
   );
 }
 
+/** Aceita também "Wellhub + TotalPass" (unidade com os dois apps, como vem dos relatórios). */
 export function AppBadge({ app }: { app: IntegrationApp | string }) {
+  const apps = String(app).split("+").map((a) => a.trim()).filter(Boolean);
+  if (apps.length > 1) {
+    return (
+      <span className="app-badges">
+        {apps.map((a) => <AppBadge key={a} app={a} />)}
+      </span>
+    );
+  }
   return <span className={`badge badge-app-${String(app).toLowerCase()}`}>{app}</span>;
 }
 

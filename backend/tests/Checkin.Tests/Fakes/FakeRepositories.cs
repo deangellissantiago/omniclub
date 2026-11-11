@@ -16,11 +16,11 @@ public class FakeCheckinPointRepository : ICheckinPointRepository
     public Task<CheckinPoint?> GetByIdAsync(string tenantId, string id, CancellationToken ct = default) =>
         Task.FromResult(Points.FirstOrDefault(p => p.TenantId == tenantId && p.Id == id));
 
-    public Task<CheckinPoint?> GetByExternalIdAsync(IntegrationApp app, string externalId, CancellationToken ct = default) =>
-        Task.FromResult(Points.FirstOrDefault(p => p.App == app && p.ExternalId == externalId));
+    public Task<CheckinPoint?> GetByWellhubGymIdAsync(string gymId, CancellationToken ct = default) =>
+        Task.FromResult(Points.FirstOrDefault(p => p.ExternalId == gymId));
 
     public Task<CheckinPoint?> GetByTotalPassWebhookKeyAsync(string webhookKey, CancellationToken ct = default) =>
-        Task.FromResult(Points.FirstOrDefault(p => p.App == IntegrationApp.TotalPass && p.TotalPassWebhookKey == webhookKey));
+        Task.FromResult(Points.FirstOrDefault(p => p.TotalPassWebhookKey == webhookKey));
 
     public Task<IReadOnlyList<CheckinPoint>> ListAsync(string tenantId, CancellationToken ct = default) =>
         Task.FromResult((IReadOnlyList<CheckinPoint>)Points.Where(p => p.TenantId == tenantId).ToList());

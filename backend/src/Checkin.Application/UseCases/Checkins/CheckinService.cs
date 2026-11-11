@@ -68,7 +68,7 @@ public class CheckinService
         string gymExternalId, string memberExternalRef, string? externalCheckinId,
         DateTime occurredAt, string? rawPayload, WellhubUserInfo? userInfo = null, CancellationToken ct = default)
     {
-        var checkinPoint = await _checkinPointRepository.GetByExternalIdAsync(IntegrationApp.Wellhub, gymExternalId, ct)
+        var checkinPoint = await _checkinPointRepository.GetByWellhubGymIdAsync(gymExternalId, ct)
             ?? throw new Exceptions.NotFoundException($"Nenhum ponto de check-in Wellhub cadastrado para o id '{gymExternalId}'.");
 
         if (!string.IsNullOrWhiteSpace(externalCheckinId))

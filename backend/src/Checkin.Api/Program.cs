@@ -147,6 +147,7 @@ app.UseAuthorization();
 app.UseMiddleware<SubscriptionGateMiddleware>();
 app.MapControllers();
 
+await MongoMigrations.RunAsync(app.Services.GetRequiredService<MongoContext>());
 await DataSeeder.SeedAsync(app.Services);
 
 app.Run();

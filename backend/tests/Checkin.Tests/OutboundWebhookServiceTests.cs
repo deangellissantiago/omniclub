@@ -36,7 +36,7 @@ public class OutboundWebhookServiceTests
 
     private static (CheckinRecord, Student, CheckinPoint) ApprovedCheckin()
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = "547050", Name = "Dynamis Vila da Serra", PricePerCheckinCents = 2500 };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = "547050", Name = "Dynamis Vila da Serra", PricePerCheckinCents = 2500 };
         var student = new Student { TenantId = TenantId, Name = "Ana Souza", Email = "ana@mail.com", Phone = "+5531988887777", WellhubMemberId = "1000000000001" };
         var record = new CheckinRecord
         {

@@ -32,7 +32,7 @@ public class BookingServiceTests
 
     private ClassSlot SeedSlot(int capacity, int bookedCount = 0)
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" };
         _points.Points.Add(point);
 
         var wellhubClass = new WellhubClass { TenantId = TenantId, CheckinPointId = point.Id, Name = "Tênis Iniciante", ExternalId = ClassExternalId };
@@ -180,7 +180,7 @@ public class BookingServiceTests
     [Fact]
     public async Task SyncClass_creates_missing_class_and_only_future_unsynced_slots_in_wellhub()
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" };
         _points.Points.Add(point);
         var wellhubClass = new WellhubClass { TenantId = TenantId, CheckinPointId = point.Id, Name = "Tênis", ProductId = 1217 };
         _classes.Classes.Add(wellhubClass);

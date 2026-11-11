@@ -96,7 +96,7 @@ npm run dev
 
 ## Testes
 
-- **Backend**: `cd backend && dotnet test` — 149 testes (unit) cobrindo os casos de uso de
+- **Backend**: `cd backend && dotnet test` — 154 testes (unit) cobrindo os casos de uso de
   Check-in/Booking/Billing/Auth, os gateways Wellhub/Stripe e o `SimulationController` (ver
   "Integração Wellhub"/"Cobrança / Stripe" abaixo).
 - **Backend (E2E do Swagger)**: `cd backend/e2e && npm install && npm test` — Playwright dirige o
@@ -126,7 +126,11 @@ npm run dev
   descrita no e-mail do Wellhub Technical Sales ("que pode optar por fazer um pré-registro do
   usuário"). Testado ao vivo em 2026-09-10 (`CheckinService.RegisterWellhubCheckinAsync`,
   coberto por teste).
-- **Pontos de check-in**: CRUD por tenant. Já vem semeado com os 4 pontos Wellhub informados
+- **Pontos de check-in** (= unidades): cada unidade aceita **Wellhub, TotalPass ou os dois**, com
+  identificador e **valor de repasse próprios por app** (Gym ID + valor Wellhub; place_api_key +
+  valor TotalPass). Qual app gerou cada check-in fica no próprio check-in, e o relatório de
+  repasse sai por unidade e por app. Pontos antigos de app único são convertidos na subida
+  (`MongoMigrations`). CRUD por tenant. Já vem semeado com os 4 pontos Wellhub informados
   (Dynamis Santa Lúcia, Pilar, Buritis e Vila da Serra). Cada ponto tem um botão **"Buscar
   produtos"** que consulta `GET /setup/v1/gyms/:gym_id/products` no Wellhub e vincula os produtos
   (planos/tipos de acesso) reais da unidade ao cadastro, pra ficarem visíveis na lista
@@ -319,7 +323,7 @@ padrão da Access Control API, e errado em vários pontos — todos corrigidos:
 
 ```bash
 cd backend
-dotnet test                                   # 149 testes: Checkin/Booking services, WellhubSignature, gateways
+dotnet test                                   # 154 testes: Checkin/Booking services, WellhubSignature, gateways
 ./scripts/simulate-wellhub-checkin.sh         # end-to-end local: assina e envia um check-in de teste
                                                # para a API rodando (docker compose ou dotnet run),
                                                # cadastra o CheckinPoint 609 se faltar

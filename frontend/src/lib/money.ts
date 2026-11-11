@@ -16,5 +16,5 @@ export function reaisInputToCents(value: string): number | null {
 }
 
 export function centsToReaisInput(cents?: number | null): string {
-  return cents == null ? "" : (cents / 100).toFixed(2);
+  return cents == null ? "" : (cents / 100).toFixed(2).replace(".", ",");
 }

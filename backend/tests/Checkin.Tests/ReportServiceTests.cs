@@ -31,11 +31,11 @@ public class ReportServiceTests
     }
 
     private void SeedCheckin(string studentId, DateTime occurredAt, string checkinPointId = "point-1", CheckinStatus status = CheckinStatus.Approved) =>
-        _checkins.Records.Add(new CheckinRecord { TenantId = TenantId, StudentId = studentId, CheckinPointId = checkinPointId, OccurredAt = occurredAt, Status = status });
+        _checkins.Records.Add(new CheckinRecord { TenantId = TenantId, StudentId = studentId, CheckinPointId = checkinPointId, App = IntegrationApp.Wellhub, OccurredAt = occurredAt, Status = status });
 
     private CheckinPoint SeedPoint(string id, string name, int? pricePerCheckinCents = null)
     {
-        var point = new CheckinPoint { Id = id, TenantId = TenantId, App = IntegrationApp.Wellhub, Name = name, PricePerCheckinCents = pricePerCheckinCents };
+        var point = new CheckinPoint { Id = id, TenantId = TenantId, ExternalId = id, Name = name, PricePerCheckinCents = pricePerCheckinCents };
         _points.Points.Add(point);
         return point;
     }
@@ -256,5 +256,25 @@ public class ReportServiceTests
         var item = report.Items.Single(i => i.CheckinPointId == "point-1");
         Assert.Equal(0, item.PreviousPeriodCheckins);
         Assert.Null(item.ChangePercent); // "novo" na UI, não uma variação de 0% ou infinita
+    }
+
+    [Fact]
+    public async Task Revenue_splits_a_unit_that_accepts_both_apps_using_each_app_price()
+    {
+        var point = SeedPoint("point-1", "Unidade A", pricePerCheckinCents: 1500);
+        point.TotalPassPlaceApiKey = "place-key";
+        point.TotalPassPricePerCheckinCents = 2000;
+        var now = DateTime.UtcNow;
+        SeedCheckin("s1", now, "point-1");
+        SeedCheckin("s2", now, "point-1");
+        _checkins.Records.Add(new CheckinRecord { TenantId = TenantId, StudentId = "s3", CheckinPointId = "point-1", App = IntegrationApp.TotalPass, OccurredAt = now, Status = CheckinStatus.Approved });
+
+        var report = await BuildService().RevenueAsync(null, null);
+
+        var wellhub = report.ByPoint.Single(r => r.App == "Wellhub");
+        var totalPass = report.ByPoint.Single(r => r.App == "TotalPass");
+        Assert.Equal(3000, wellhub.EstimatedRevenueCents);   // 2 × R$ 15
+        Assert.Equal(2000, totalPass.EstimatedRevenueCents); // 1 × R$ 20
+        Assert.Equal(5000, report.TotalEstimatedRevenueCents);
     }
 }

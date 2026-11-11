@@ -7,9 +7,9 @@ public interface ICheckinPointRepository
 {
     Task<CheckinPoint?> GetByIdAsync(string tenantId, string id, CancellationToken ct = default);
 
-    /// <summary>Busca global (sem filtro de tenant) por app + id externo — usada pelo webhook de
-    /// integração, que recebe eventos sem contexto de tenant autenticado.</summary>
-    Task<CheckinPoint?> GetByExternalIdAsync(IntegrationApp app, string externalId, CancellationToken ct = default);
+    /// <summary>Busca global (sem filtro de tenant) pelo Gym ID do Wellhub — usada pelo webhook do
+    /// Wellhub, que recebe eventos sem contexto de tenant autenticado.</summary>
+    Task<CheckinPoint?> GetByWellhubGymIdAsync(string gymId, CancellationToken ct = default);
 
     /// <summary>Busca global pela chave da URL de webhook do TotalPass (ver
     /// CheckinPoint.TotalPassWebhookKey) — o evento chega sem tenant autenticado.</summary>

@@ -44,7 +44,7 @@ public class RetentionAlertServiceTests
 
     private CheckinPoint SeedPoint(string id, string name = "Unidade A")
     {
-        var point = new CheckinPoint { Id = id, TenantId = TenantId, App = IntegrationApp.Wellhub, Name = name };
+        var point = new CheckinPoint { Id = id, TenantId = TenantId, Name = name };
         _points.Points.Add(point);
         return point;
     }

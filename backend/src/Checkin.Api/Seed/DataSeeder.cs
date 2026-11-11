@@ -57,7 +57,6 @@ public static class DataSeeder
             await pointRepo.CreateAsync(new CheckinPoint
             {
                 TenantId = tenant.Id,
-                App = IntegrationApp.Wellhub,
                 ExternalId = externalId,
                 Name = name
             });

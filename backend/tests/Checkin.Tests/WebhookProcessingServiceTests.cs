@@ -42,7 +42,7 @@ public class WebhookProcessingServiceTests
 
     private CheckinPoint SeedCheckinPoint()
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" };
         _points.Points.Add(point);
         return point;
     }

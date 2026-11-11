@@ -46,7 +46,7 @@ public class SimulationControllerTests
     }
 
     private void SeedCheckinPoint() =>
-        _points.Points.Add(new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" });
+        _points.Points.Add(new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" });
 
     [Fact]
     public async Task SimulateCheckin_returns_ok_with_the_checkin_service_result()
@@ -123,7 +123,7 @@ public class SimulationControllerTests
     [Fact]
     public async Task SimulateBookingRequested_returns_ok_with_the_booking_service_result()
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" };
         _points.Points.Add(point);
         var wellhubClass = new WellhubClass { TenantId = TenantId, CheckinPointId = point.Id, Name = "Aula", ExternalId = "class-1" };
         _classes.Classes.Add(wellhubClass);
@@ -140,7 +140,7 @@ public class SimulationControllerTests
     [Fact]
     public async Task SimulateBookingCanceled_returns_404_for_a_booking_never_requested()
     {
-        var point = new CheckinPoint { TenantId = TenantId, App = IntegrationApp.Wellhub, ExternalId = GymExternalId, Name = "Sandbox" };
+        var point = new CheckinPoint { TenantId = TenantId, ExternalId = GymExternalId, Name = "Sandbox" };
         _points.Points.Add(point);
         var wellhubClass = new WellhubClass { TenantId = TenantId, CheckinPointId = point.Id, Name = "Aula" };
         _classes.Classes.Add(wellhubClass);

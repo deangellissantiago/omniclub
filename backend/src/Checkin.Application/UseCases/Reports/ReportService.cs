@@ -57,7 +57,9 @@ public class ReportService
             .Select(g =>
             {
                 var point = points.FirstOrDefault(p => p.Id == g.Key);
-                return new SchoolReportItemDto(g.Key, point?.Name ?? "Ponto removido", point?.App.ToString() ?? "-", g.LongCount(), g.Max(r => (DateTime?)r.OccurredAt));
+                // Apps que de fato geraram check-ins no período (uma unidade pode aceitar os dois).
+                var apps = string.Join(" + ", g.Select(r => r.App).Distinct().OrderBy(a => a));
+                return new SchoolReportItemDto(g.Key, point?.Name ?? "Ponto removido", apps, g.LongCount(), g.Max(r => (DateTime?)r.OccurredAt));
             })
             .OrderByDescending(x => x.TotalCheckins)
             .ToList();
@@ -187,25 +189,33 @@ public class ReportService
     }
 
     /// <summary>Conciliação de repasse: check-ins Approved × valor/check-in configurado por
-    /// ponto, filtrável por data. Diferencial que só o OmniClub calcula — nenhum sistema de
-    /// gestão de academia genérico tem acesso ao dado de check-in do app de benefício.</summary>
+    /// unidade <b>e por app</b> (uma linha por app que a unidade aceita — o repasse do Wellhub e o
+    /// do TotalPass são diferentes), filtrável por data. Diferencial que só o OmniClub calcula —
+    /// nenhum sistema de gestão de academia genérico tem acesso ao dado de check-in do app.</summary>
     public async Task<RevenueReportDto> RevenueAsync(DateTime? start, DateTime? end, CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId;
         var records = await _checkinRepository.ListAsync(tenantId, start, end, ct: ct);
         var points = await _checkinPointRepository.ListAsync(tenantId, ct);
 
-        var approvedByPoint = records
+        var approvedByPointAndApp = records
             .Where(r => r.Status == CheckinStatus.Approved)
-            .GroupBy(r => r.CheckinPointId)
+            .GroupBy(r => (r.CheckinPointId, r.App))
             .ToDictionary(g => g.Key, g => g.LongCount());
 
+        // Apps ativos na unidade + qualquer app que tenha check-in aprovado nela no período (ex.:
+        // TotalPass desligado depois) — nenhum check-in fica fora da conciliação.
         var items = points
-            .Select(p =>
+            .SelectMany(p => p.Apps()
+                .Union(approvedByPointAndApp.Keys.Where(k => k.CheckinPointId == p.Id).Select(k => k.App))
+                .Distinct()
+                .Select(app => (Point: p, App: app)))
+            .Select(x =>
             {
-                approvedByPoint.TryGetValue(p.Id, out var approved);
-                long? revenue = p.PricePerCheckinCents.HasValue ? approved * p.PricePerCheckinCents.Value : null;
-                return new RevenuePerPointDto(p.Id, p.Name, p.App.ToString(), approved, p.PricePerCheckinCents, revenue);
+                approvedByPointAndApp.TryGetValue((x.Point.Id, x.App), out var approved);
+                var price = x.Point.PriceFor(x.App);
+                long? revenue = price.HasValue ? approved * price.Value : null;
+                return new RevenuePerPointDto(x.Point.Id, x.Point.Name, x.App.ToString(), approved, price, revenue);
             })
             .OrderByDescending(x => x.EstimatedRevenueCents ?? -1) // configurados primeiro, ordenados por valor; não configurados no fim
             .ThenByDescending(x => x.ApprovedCheckins)

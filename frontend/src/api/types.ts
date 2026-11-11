@@ -57,18 +57,20 @@ export interface WellhubProduct {
   virtual: boolean;
 }
 
+/** Unidade física. Pode aceitar Wellhub, TotalPass ou os dois (`apps`). `externalId`, `products`
+ * e `pricePerCheckinCents` são do Wellhub; os do TotalPass ficam em `totalPass`. */
 export interface CheckinPoint {
   id: string;
-  app: IntegrationApp;
-  externalId: string;
   name: string;
   active: boolean;
   createdAt: string;
+  apps: IntegrationApp[];
+  /** Gym ID do Wellhub — vazio se a unidade não aceita Wellhub. */
+  externalId: string;
   products: WellhubProduct[];
-  /** Valor (em centavos) que o app repassa à academia por check-in aprovado neste ponto.
-   * Nulo enquanto o admin não configurar — o relatório de repasse não estima em cima disso. */
+  /** Repasse do Wellhub por check-in, em centavos. Nulo = não configurado. */
   pricePerCheckinCents?: number | null;
-  /** Só pontos TotalPass: situação da conexão (a place_api_key nunca volta inteira). */
+  /** Nulo se a unidade não aceita TotalPass. A place_api_key nunca volta inteira. */
   totalPass?: TotalPassStatus | null;
 }
 
@@ -77,12 +79,22 @@ export interface TotalPassStatus {
   placeApiKeyHint?: string | null;
   connectedAt?: string | null;
   placeName?: string | null;
+  placeId?: string | null;
+  /** Repasse do TotalPass por check-in, em centavos. */
+  pricePerCheckinCents?: number | null;
 }
 
-export type UpsertCheckinPoint = Omit<CheckinPoint, "id" | "createdAt" | "products" | "totalPass"> & {
-  /** Só TotalPass. Vazio/omitido na edição = mantém a chave atual. */
+export interface UpsertCheckinPoint {
+  name: string;
+  active: boolean;
+  /** Gym ID do Wellhub; vazio = não aceita Wellhub. */
+  externalId?: string | null;
+  pricePerCheckinCents?: number | null;
+  totalPassEnabled: boolean;
+  /** Vazio/omitido na edição = mantém a chave atual. */
   totalPassPlaceApiKey?: string | null;
-};
+  totalPassPricePerCheckinCents?: number | null;
+}
 
 export interface CheckinRecord {
   id: string;

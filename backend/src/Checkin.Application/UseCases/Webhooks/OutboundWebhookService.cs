@@ -231,7 +231,7 @@ public class OutboundWebhookService
         if (!IsConfigured(tenant))
             throw new Exceptions.ConflictException("Configure a URL do webhook antes de enviar um teste.");
 
-        var testPoint = new CheckinPoint { App = IntegrationApp.Wellhub, ExternalId = "000000", Name = "Unidade de teste", PricePerCheckinCents = 2500 };
+        var testPoint = new CheckinPoint { ExternalId = "000000", Name = "Unidade de teste", PricePerCheckinCents = 2500 };
         var testStudent = new Student { Name = "Atleta de Teste", Email = "teste@omniclub.run", Phone = "+5531999999999", WellhubMemberId = "0000000000000" };
         var payload = BuildPayload(TestEvent, $"teste-{Guid.NewGuid()}", DateTime.UtcNow, IntegrationApp.Wellhub,
             testStudent.WellhubMemberId, testStudent, testPoint);
@@ -308,13 +308,13 @@ public class OutboundWebhookService
             AtletaEmail: student?.Email,
             OcorridoEm: ToSaoPaulo(occurredAtUtc),
             Origem: app.ToString(),
-            ValorRepasse: point.PricePerCheckinCents is int cents ? new decimal(cents, 0, 0, false, 2) : null,
+            ValorRepasse: point.PriceFor(app) is int cents ? new decimal(cents, 0, 0, false, 2) : null,
             WellhubId: app == IntegrationApp.Wellhub ? memberRef ?? student?.WellhubMemberId : student?.WellhubMemberId,
             TotalpassId: app == IntegrationApp.TotalPass ? memberRef ?? student?.TotalPassMemberId : student?.TotalPassMemberId,
             AtletaNome: student?.Name,
             AtletaTelefone: student?.Phone,
             AtletaCpf: string.IsNullOrWhiteSpace(student?.Document) ? null : new string(student.Document.Where(char.IsDigit).ToArray()),
-            Unidade: new UnidadeOut(point.ExternalId, point.Name));
+            Unidade: new UnidadeOut(point.ExternalIdFor(app) ?? string.Empty, point.Name));
         return JsonSerializer.Serialize(payload, PayloadJson);
     }
 
